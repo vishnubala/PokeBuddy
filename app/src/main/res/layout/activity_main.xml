@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PokeBuddy — FLAG_SECURE capture spike"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:paddingBottom="12dp" />
+
+        <TextView
+            android:id="@+id/instructions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="15sp"
+            android:lineSpacingMultiplier="1.2"
+            android:text="1. Tap START CAPTURE and grant the screen-recording prompt.\n2. A notification appears. Switch to Pokémon GO and open a Pokémon's detail screen (CP/HP visible).\n3. Pull down the notification and tap CAPTURE NOW.\n4. Come back here — the result shows whether the frame was black (FLAG_SECURE) or readable." />
+
+        <Button
+            android:id="@+id/startButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Start Capture" />
+
+        <TextView
+            android:id="@+id/result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:textSize="15sp"
+            android:fontFamily="monospace"
+            android:text="(no result yet)" />
+    </LinearLayout>
+</ScrollView>

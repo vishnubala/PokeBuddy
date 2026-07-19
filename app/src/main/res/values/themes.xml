@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.PokeBuddy" parent="Theme.Material3.DayNight">
+        <item name="android:statusBarColor">?attr/colorPrimary</item>
+    </style>
+</resources>

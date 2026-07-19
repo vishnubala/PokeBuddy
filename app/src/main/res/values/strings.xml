@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">PokeBuddy</string>
+    <string name="gesture_service_label">PokeBuddy auto-appraise</string>
+    <string name="gesture_service_description">Lets PokeBuddy tap through Pokémon GO\'s appraisal screen for you, so an exact IV can be read without doing it by hand. Only active when you trigger a scan.</string>
+</resources>
