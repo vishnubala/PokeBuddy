@@ -58,6 +58,34 @@ interface OwnedPokemonDao {
     @Query("SELECT * FROM owned_pokemon WHERE species = :species AND cp = :cp AND hpMax IS :hpMax LIMIT 1")
     fun findMatch(species: String, cp: Int?, hpMax: Int?): OwnedPokemon?
 
+    /**
+     * Identity match on the values that DON'T change.
+     *
+     * Weight and height are fixed when a Pokémon is caught and survive powering up and
+     * evolving, unlike CP and maxHP — matching on those turns one powered-up Pokémon into
+     * two rows. Catch date narrows the rare case of two individuals sharing a species and
+     * identical measurements.
+     */
+    @Query(
+        "SELECT * FROM owned_pokemon WHERE species = :species AND weight IS :weight " +
+            "AND height IS :height AND (:caughtDate IS NULL OR caughtDate IS NULL " +
+            "OR caughtDate = :caughtDate) LIMIT 1"
+    )
+    fun findByIdentity(
+        species: String, weight: String?, height: String?, caughtDate: String?,
+    ): OwnedPokemon?
+
+    /** Backfills identity onto a row indexed before these columns existed. */
+    @Query(
+        "UPDATE owned_pokemon SET weight = :weight, height = :height, " +
+            "caughtLocation = :location, caughtDate = :date WHERE id = :id"
+    )
+    fun updateIdentity(id: Long, weight: String?, height: String?, location: String?, date: String?)
+
+    /** CP and HP change on power-up; the identity match is what found the row. */
+    @Query("UPDATE owned_pokemon SET cp = :cp, hpMax = :hpMax WHERE id = :id")
+    fun updateStats(id: Long, cp: Int?, hpMax: Int?)
+
     /** Rewrites a row's IV — exact values when known, else nulls plus a candidate count. */
     @Query(
         "UPDATE owned_pokemon SET ivAtk = :atk, ivDef = :def, ivSta = :sta, " +

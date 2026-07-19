@@ -60,6 +60,25 @@ of storing personal data in the index.
 Worth fixing BEFORE the first full box scan, since a scan followed by normal play would
 otherwise accumulate duplicates.
 
+## Settings, backup and export
+
+Requested; not built yet.
+
+- **Settings page** to configure the overlay — poll interval, auto-appraise on/off, panel
+  position/size, which fields to show, scan mode (semi-manual vs auto-navigate).
+- **Export settings** as a backup file, re-importable after a reinstall.
+- **Export the DB** once the schema is settled, so the index survives reinstalling PokeBuddy
+  or PoGO. Deliberately AFTER the schema stabilises — exporting a format still in flux
+  produces backups that can't be restored.
+  - Export must be explicit and user-initiated. The DB contains catch locations and dates
+    (personal data), so it is never uploaded anywhere: local file only, and never committed.
+  - Import needs a schema version in the file and a migration path, or old backups become
+    unrestorable — the same discipline as the Room migrations.
+
+**Order matters here**: box scan comes last, after the features are built, scanning is
+ironed out, and the DB is robust. A scan writing into an unstable schema just creates data
+that has to be thrown away.
+
 ## Deferred, with reasons
 
 - **Egg-hatch hooks** — needs a hatch to happen on demand; not practical to sit and wait.

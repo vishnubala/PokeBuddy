@@ -651,7 +651,18 @@ class ScreenCaptureService : Service() {
         val candidates = decode?.distinctIvs?.size ?: 0
         val dao = db.ownedDao()
 
-        val existing = dao.findMatch(s.name, s.cp, s.hpMax)
+        // Prefer the immutable fingerprint (weight/height/catch date) so a powered-up
+        // Pokémon updates its row instead of spawning a second one. Fall back to the old
+        // CP/HP match for rows indexed before those columns existed, or frames where the
+        // measurements weren't legible.
+        val weight = mode(details.mapNotNull { it.weight })
+        val height = mode(details.mapNotNull { it.height })
+        val caughtLocation = mode(details.mapNotNull { it.caughtLocation })
+        val caughtDate = mode(details.mapNotNull { it.caughtDate })
+        val existing =
+            (if (weight != null && height != null)
+                dao.findByIdentity(s.name, weight, height, caughtDate) else null)
+                ?: dao.findMatch(s.name, s.cp, s.hpMax)
         val id: Long
         val action: String
         if (existing == null) {
@@ -661,11 +672,21 @@ class ScreenCaptureService : Service() {
                     ivAtk = exact?.attack, ivDef = exact?.defense, ivSta = exact?.stamina,
                     ivPercent = percent, ivCandidates = candidates,
                     fastMove = fastMove, chargedMove = chargedMove,
+                    weight = weight, height = height,
+                    caughtLocation = caughtLocation, caughtDate = caughtDate,
                 )
             )
             action = "indexed"
         } else {
             id = existing.id
+            // Backfill identity onto rows that predate these columns, and keep CP/HP current
+            // — a power-up is the same Pokémon with new numbers, not a new one.
+            if (weight != null && existing.weight == null) {
+                dao.updateIdentity(id, weight, height, caughtLocation, caughtDate)
+            }
+            if (existing.cp != s.cp || existing.hpMax != s.hpMax) {
+                dao.updateStats(id, s.cp, s.hpMax)
+            }
             // Only ever write back a read that knows MORE than the stored one: a later
             // scan without the appraisal open must not erase an exact IV we already have.
             if (exact != null || percent != null || existing.ivAtk == null) {

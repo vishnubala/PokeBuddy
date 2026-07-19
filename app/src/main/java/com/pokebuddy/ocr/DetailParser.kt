@@ -31,6 +31,13 @@ data class DetailInfo(
     /** ALL charged moves, in screen order. A Pokémon can be given a second charged move,
      *  so this is a list rather than a single value. */
     val chargedMoves: List<String> = emptyList(),
+    /**
+     * Where and when it was caught. Per-individual and immutable, so these help identify a
+     * Pokémon across power-ups — but they are PERSONAL DATA: they stay in the on-device
+     * index and must never be committed as fixtures.
+     */
+    val caughtLocation: String? = null,
+    val caughtDate: String? = null,
 ) {
     val chargedMove: String? get() = chargedMoves.firstOrNull()
     val chargedMove2: String? get() = chargedMoves.getOrNull(1)
@@ -64,6 +71,8 @@ object DetailParser {
     // The move-type icon OCRs as a stray leading glyph, with or without a space:
     // "O Poison Jab", "OSludge Bomb".
     private val MOVE_ICON_RE = Regex("^[O0Qo()@]\\s*")
+    private val DATE_RE = Regex("\\d{1,2}/\\d{1,2}/\\d{4}")
+    private val AROUND_RE = Regex("^around\\s+(.+)$", RegexOption.IGNORE_CASE)
 
     fun parse(result: OcrResult): DetailInfo {
         val lines = result.lines
@@ -120,6 +129,10 @@ object DetailParser {
             megaEnergy = megaEnergy(lines),
             fastMove = moves.firstOrNull { it.isFast }?.name,
             chargedMoves = moves.filterNot { it.isFast }.map { it.name }.distinct(),
+            caughtLocation = caughtLocation(lines),
+            caughtDate = lines.firstNotNullOfOrNull {
+                DATE_RE.find(it.text)?.value
+            },
             types = types,
         )
     }
@@ -139,6 +152,24 @@ object DetailParser {
             val name = MOVE_ICON_RE.replace(t, "").trim()
             if (name.length < 3) null else MoveTable.byName(name)
         }
+
+    /**
+     * Catch location, which the game renders two different ways depending on how far the
+     * detail screen is scrolled:
+     *   "This Ponyta was caught on 13/07/2026" / "around Waterloo, Ontario, Canada."
+     *   "CAUGHT IN THE WILD" / "Waterloo, Ontario, Canada" / "19/07/2026"
+     */
+    private fun caughtLocation(lines: List<OcrLine>): String? {
+        lines.firstNotNullOfOrNull { AROUND_RE.find(it.text.trim())?.groupValues?.get(1) }
+            ?.let { return it.trim().trimEnd('.') }
+        // Fall back to the line directly beneath a "CAUGHT ..." label.
+        val label = lines.firstOrNull { it.text.trim().startsWith("CAUGHT", true) } ?: return null
+        return lines
+            .filter { it !== label && it.cy > label.cy && it.cy - label.cy < 140 }
+            .filter { it.text.any { c -> c.isLetter() } && !DATE_RE.containsMatchIn(it.text) }
+            .minByOrNull { it.cy - label.cy }
+            ?.text?.trim()?.trimEnd('.')
+    }
 
     /** Every mega-energy label on the screen, each paired with the number above it. */
     private fun megaEnergy(lines: List<OcrLine>): List<MegaEnergyRead> =

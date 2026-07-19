@@ -33,6 +33,18 @@ data class OwnedPokemon(
     val chargedMove: String? = null,
     /** Second charged move, once unlocked. Null for Pokémon that only have one. */
     val chargedMove2: String? = null,
+    /**
+     * Per-individual constants, fixed when the Pokémon was caught and unchanged by powering
+     * up or evolving — which is exactly what makes them usable as identity. CP and maxHP
+     * both move, so matching on those alone turns one powered-up Pokémon into two rows.
+     *
+     * Catch location and date stay on the device: they are personal data and must never be
+     * committed as test fixtures (see ROADMAP).
+     */
+    val weight: String? = null,
+    val height: String? = null,
+    val caughtLocation: String? = null,
+    val caughtDate: String? = null,
     val appraisalText: String? = null,
     val capturedAt: Long = System.currentTimeMillis(),
 )

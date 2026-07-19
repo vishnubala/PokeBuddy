@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [OwnedPokemon::class, FamilyResource::class, MegaEnergy::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class PokeDatabase : RoomDatabase() {
@@ -85,12 +85,27 @@ abstract class PokeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v5 → v6: store the per-individual constants used for stable identity.
+         *
+         * Existing rows read null and get filled in on their next scan; until then they
+         * still match on the old species+CP+maxHP path.
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN weight TEXT")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN height TEXT")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN caughtLocation TEXT")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN caughtDate TEXT")
+            }
+        }
+
         @Volatile private var instance: PokeDatabase? = null
 
         fun get(context: Context): PokeDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, PokeDatabase::class.java, "pokebuddy.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build().also { instance = it }
         }
     }
