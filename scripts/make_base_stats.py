@@ -9,11 +9,20 @@ the resulting CSV ships inside the app, which is what keeps PokeBuddy fully offl
 
 Downloads the GameMaster if no local path is given.
 
-Columns: key,dex,name,atk,def,hp,types,family
-  key    normalized speciesName (lowercase alphanumerics) — the lookup key
-  name   display name, e.g. "Raichu (Alolan)"
-  types  pipe-separated, "none" dropped: "electric|psychic" or "electric"
-  family evolution family, candy is shared across it (FAMILY_ prefix stripped)
+Writes two assets:
+
+base_stats.csv — key,dex,name,atk,def,hp,types,family,fast,charged
+  key      normalized speciesName (lowercase alphanumerics) — the lookup key
+  name     display name, e.g. "Raichu (Alolan)"
+  types    pipe-separated, "none" dropped: "electric|psychic" or "electric"
+  family   evolution family, candy is shared across it (FAMILY_ prefix stripped)
+  fast     pipe-separated move ids the species can learn
+  charged  pipe-separated move ids the species can learn
+
+moves.csv — id,name,type,power,energy,energyGain,cooldown,turns
+  Move stats are pvpoke's PVP values. Pokemon GO uses DIFFERENT numbers for PvE
+  (raids/gyms), so anything ranked off these is an approximation outside PvP and
+  should be presented as such.
 """
 import json
 import re
@@ -22,6 +31,7 @@ import urllib.request
 
 URL = "https://raw.githubusercontent.com/pvpoke/pvpoke/master/src/data/gamemaster.json"
 OUT = "app/src/main/assets/base_stats.csv"
+OUT_MOVES = "app/src/main/assets/moves.csv"
 
 
 def normalize(name):
@@ -55,15 +65,36 @@ def main():
         rows[key] = (
             key, p.get("dex", 0), name,
             stats["atk"], stats["def"], stats["hp"], types, family,
+            "|".join(p.get("fastMoves", [])),
+            "|".join(p.get("chargedMoves", [])),
         )
 
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write("key,dex,name,atk,def,hp,types,family\n")
+        f.write("key,dex,name,atk,def,hp,types,family,fast,charged\n")
         for key in sorted(rows):
             f.write(",".join(str(c) for c in rows[key]) + "\n")
 
+    moves = {}
+    for m in data.get("moves", []):
+        mid = m.get("moveId")
+        if not mid:
+            continue
+        assert "," not in m.get("name", ""), f"comma in move name: {m['name']!r}"
+        moves[mid] = (
+            mid, m.get("name", mid), m.get("type", ""), m.get("power", 0),
+            m.get("energy", 0), m.get("energyGain", 0),
+            m.get("cooldown", 0), m.get("turns", 0),
+        )
+
+    with open(OUT_MOVES, "w", encoding="utf-8", newline="\n") as f:
+        f.write("id,name,type,power,energy,energyGain,cooldown,turns\n")
+        for mid in sorted(moves):
+            f.write(",".join(str(c) for c in moves[mid]) + "\n")
+
     typed = sum(1 for r in rows.values() if r[6])
-    print(f"wrote {len(rows)} species to {OUT} ({typed} with types)")
+    withmoves = sum(1 for r in rows.values() if r[8])
+    print(f"wrote {len(rows)} species to {OUT} ({typed} typed, {withmoves} with moves)")
+    print(f"wrote {len(moves)} moves to {OUT_MOVES}")
 
 
 if __name__ == "__main__":

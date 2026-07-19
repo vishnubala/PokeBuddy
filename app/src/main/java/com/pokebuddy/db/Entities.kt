@@ -26,6 +26,11 @@ data class OwnedPokemon(
     val ivPercent: Int? = null,
     /** >1 when the decode returned a candidate set rather than an exact IV. */
     val ivCandidates: Int = 0,
+    /** Current moveset as shown on the detail screen ("Quick Attack"), null until read.
+     *  Stored as the display name rather than a move id: it's what OCR gives us, and
+     *  MoveTable resolves it either way. */
+    val fastMove: String? = null,
+    val chargedMove: String? = null,
     val appraisalText: String? = null,
     val capturedAt: Long = System.currentTimeMillis(),
 )

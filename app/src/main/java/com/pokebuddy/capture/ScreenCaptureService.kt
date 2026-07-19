@@ -36,6 +36,7 @@ import com.pokebuddy.iv.CpResolver
 import com.pokebuddy.iv.DecodeResult
 import com.pokebuddy.iv.Iv
 import com.pokebuddy.iv.IvDecoder
+import com.pokebuddy.iv.MoveTable
 import com.pokebuddy.iv.SpeciesTable
 import com.pokebuddy.ocr.AppraisalReader
 import com.pokebuddy.ocr.DetailParser
@@ -135,8 +136,9 @@ class ScreenCaptureService : Service() {
         // Load the full base-stat table from the bundled asset (offline).
         runCatching {
             SpeciesTable.load(assets.open("base_stats.csv").bufferedReader().use { it.readText() })
-            Log.i(TAG, "SpeciesTable loaded: ${SpeciesTable.size} species")
-        }.onFailure { Log.e(TAG, "Failed to load base_stats.csv", it) }
+            MoveTable.load(assets.open("moves.csv").bufferedReader().use { it.readText() })
+            Log.i(TAG, "Loaded ${SpeciesTable.size} species, ${MoveTable.size} moves")
+        }.onFailure { Log.e(TAG, "Failed to load game data assets", it) }
         bgThread = HandlerThread("capture").apply { start() }
         bgHandler = Handler(bgThread.looper)
         // RECEIVER_EXPORTED so `adb shell am broadcast` (a different uid) can reach it.

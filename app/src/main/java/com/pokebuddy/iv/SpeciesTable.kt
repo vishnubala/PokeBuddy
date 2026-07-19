@@ -21,6 +21,9 @@ object SpeciesTable {
         val stats: BaseStats,
         val types: List<String>,
         val family: String,
+        /** Move ids the species can learn; empty for legacy 4-column fixture rows. */
+        val fastMoves: List<String> = emptyList(),
+        val chargedMoves: List<String> = emptyList(),
     ) {
         /**
          * Mega/Primal forms are a temporary battle state, not something you own: mega
@@ -62,6 +65,8 @@ object SpeciesTable {
                         stats = BaseStats(atk, def, hp),
                         types = p[6].split('|').map { it.trim() }.filter { it.isNotEmpty() },
                         family = p[7].trim(),
+                        fastMoves = p.getOrNull(8).orEmpty().split('|').filter { it.isNotBlank() },
+                        chargedMoves = p.getOrNull(9).orEmpty().split('|').filter { it.isNotBlank() },
                     )
                 }
                 // Legacy/inline fixture rows: key,atk,def,hp
@@ -144,6 +149,9 @@ object SpeciesTable {
      * instead of the misleading "not in the table".
      */
     fun formsFor(name: String): List<Species> = byBaseName[normalize(name)].orEmpty()
+
+    /** Every species in the table — used to scan for counters. */
+    fun all(): Collection<Species> = byKey.values
 
     operator fun get(name: String): BaseStats? = species(name)?.stats
 }

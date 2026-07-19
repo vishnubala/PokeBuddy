@@ -1,0 +1,335 @@
+id,name,type,power,energy,energyGain,cooldown,turns
+ACID,Acid,poison,6,0,8,1000,2
+ACID_SPRAY,Acid Spray,poison,20,45,0,500,1
+ACROBATICS,Acrobatics,flying,110,55,0,500,1
+AEGISLASH_CHARGE_AIR_SLASH,Air Slash,flying,0,0,6,1500,3
+AEGISLASH_CHARGE_PSYCHO_CUT,Psycho Cut,psychic,0,0,6,1000,2
+AERIAL_ACE,Aerial Ace,flying,60,45,0,500,1
+AEROBLAST,Aeroblast,flying,170,75,0,500,1
+AIR_CUTTER,Air Cutter,flying,45,35,0,500,1
+AIR_SLASH,Air Slash,flying,9,0,9,1500,3
+ANCIENT_POWER,Ancient Power,rock,60,45,0,500,1
+AQUA_JET,Aqua Jet,water,70,40,0,500,1
+AQUA_STEP,Aqua Step,water,55,40,0,500,1
+AQUA_TAIL,Aqua Tail,water,55,35,0,500,1
+ASTONISH,Astonish,ghost,12,0,10,1500,3
+AURA_SPHERE,Aura Sphere,fighting,80,40,0,500,1
+AURA_WHEEL_DARK,Aura Wheel,dark,100,45,0,500,1
+AURA_WHEEL_ELECTRIC,Aura Wheel,electric,100,45,0,500,1
+AURORA_BEAM,Aurora Beam,ice,80,60,0,500,1
+AVALANCHE,Avalanche,ice,90,45,0,500,1
+BEAK_BLAST,Beak Blast,flying,110,55,0,500,1
+BEHEMOTH_BASH,Behemoth Bash,steel,80,45,0,500,1
+BEHEMOTH_BLADE,Behemoth Blade,steel,100,55,0,500,1
+BITE,Bite,dark,4,0,2,500,1
+BLAST_BURN,Blast Burn,fire,110,50,0,500,1
+BLAZE_KICK,Blaze Kick,fire,60,40,0,500,1
+BLEAKWIND_STORM,Bleakwind Storm,flying,60,45,0,500,1
+BLIZZARD,Blizzard,ice,140,75,0,500,1
+BODY_SLAM,Body Slam,normal,55,35,0,500,1
+BONE_CLUB,Bone Club,ground,55,35,0,500,1
+BOOMBURST,Boomburst,normal,150,70,0,500,1
+BRAVE_BIRD,Brave Bird,flying,130,55,0,500,1
+BREAKING_SWIPE,Breaking Swipe,dragon,50,50,0,500,1
+BRICK_BREAK,Brick Break,fighting,50,40,0,500,1
+BRINE,Brine,water,60,50,0,500,1
+BRUTAL_SWING,Brutal Swing,dark,55,35,0,500,1
+BUBBLE,Bubble,water,8,0,11,1500,3
+BUBBLE_BEAM,Bubble Beam,water,25,40,0,500,1
+BUG_BITE,Bug Bite,bug,4,0,3,500,1
+BUG_BUZZ,Bug Buzz,bug,100,60,0,500,1
+BULLDOZE,Bulldoze,ground,45,45,0,500,1
+BULLET_PUNCH,Bullet Punch,steel,7,0,7,1000,2
+BULLET_SEED,Bullet Seed,grass,5,0,13,1500,3
+CHARGE_BEAM,Charge Beam,electric,5,0,11,1500,3
+CHARM,Charm,fairy,12,0,8,1500,3
+CHILLING_WATER,Chilling Water,water,60,45,0,500,1
+CLANGING_SCALES,Clanging Scales,dragon,120,45,0,500,1
+CLOSE_COMBAT,Close Combat,fighting,100,45,0,500,1
+CONFUSION,Confusion,psychic,16,0,14,2000,4
+COUNTER,Counter,fighting,8,0,6,1000,2
+CRABHAMMER,Crabhammer,water,85,50,0,500,1
+CROSS_CHOP,Cross Chop,fighting,55,35,0,500,1
+CROSS_POISON,Cross Poison,poison,50,35,0,500,1
+CRUNCH,Crunch,dark,70,45,0,500,1
+CRUSH_GRIP,Crush Grip,normal,110,50,0,500,1
+CUT,Cut,normal,3,0,2,500,1
+DARKEST_LARIAT,Darkest Lariat,dark,120,60,0,500,1
+DARK_PULSE,Dark Pulse,dark,80,50,0,500,1
+DAZZLING_GLEAM,Dazzling Gleam,fairy,90,55,0,500,1
+DIG,Dig,ground,70,50,0,500,1
+DISARMING_VOICE,Disarming Voice,fairy,70,45,0,500,1
+DISCHARGE,Discharge,electric,55,40,0,500,1
+DIVE,Dive,water,50,40,0,500,1
+DOOM_DESIRE,Doom Desire,steel,80,40,0,500,1
+DOUBLE_IRON_BASH,Double Iron Bash,steel,55,35,0,500,1
+DOUBLE_KICK,Double Kick,fighting,8,0,12,1500,3
+DRACO_METEOR,Draco Meteor,dragon,150,65,0,500,1
+DRAGON_ASCENT,Dragon Ascent,flying,110,45,0,500,1
+DRAGON_BREATH,Dragon Breath,dragon,3,0,4,500,1
+DRAGON_CLAW,Dragon Claw,dragon,80,50,0,500,1
+DRAGON_ENERGY,Dragon Energy,dragon,90,45,0,500,1
+DRAGON_PULSE,Dragon Pulse,dragon,90,55,0,500,1
+DRAGON_TAIL,Dragon Tail,dragon,9,0,12,1500,3
+DRAINING_KISS,Draining Kiss,fairy,60,55,0,500,1
+DRAIN_PUNCH,Drain Punch,fighting,40,40,0,500,1
+DRILL_PECK,Drill Peck,flying,70,40,0,500,1
+DRILL_RUN,Drill Run,ground,70,40,0,500,1
+DRUM_BEATING,Drum Beating,grass,60,35,0,500,1
+DYNAMAX_CANNON,Dynamax Cannon,dragon,80,45,0,500,1
+DYNAMIC_PUNCH,Dynamic Punch,fighting,90,45,0,500,1
+EARTHQUAKE,Earthquake,ground,120,65,0,500,1
+EARTH_POWER,Earth Power,ground,90,50,0,500,1
+EMBER,Ember,fire,4,0,9,1000,2
+ENERGY_BALL,Energy Ball,grass,80,45,0,500,1
+EXTRASENSORY,Extrasensory,psychic,8,0,10,1500,3
+FAIRY_WIND,Fairy Wind,fairy,4,0,9,1000,2
+FEATHER_DANCE,Feather Dance,flying,35,50,0,500,1
+FEINT_ATTACK,Feint Attack,dark,6,0,6,1000,2
+FELL_STINGER,Fell Stinger,bug,20,35,0,500,1
+FIRE_BLAST,Fire Blast,fire,140,80,0,500,1
+FIRE_FANG,Fire Fang,fire,8,0,6,1000,2
+FIRE_PUNCH,Fire Punch,fire,60,40,0,500,1
+FIRE_SPIN,Fire Spin,fire,11,0,10,1500,3
+FLAMETHROWER,Flamethrower,fire,90,55,0,500,1
+FLAME_BURST,Flame Burst,fire,70,55,0,500,1
+FLAME_CHARGE,Flame Charge,fire,65,50,0,500,1
+FLAME_WHEEL,Flame Wheel,fire,80,45,0,500,1
+FLASH_CANNON,Flash Cannon,steel,110,65,0,500,1
+FLOWER_TRICK,Flower Trick,grass,30,35,0,500,1
+FLY,Fly,flying,80,45,0,500,1
+FLYING_PRESS,Flying Press,fighting,90,40,0,500,1
+FOCUS_BLAST,Focus Blast,fighting,150,75,0,500,1
+FORCE_PALM,Force Palm,fighting,13,0,10,1500,3
+FOUL_PLAY,Foul Play,dark,65,40,0,500,1
+FREEZE_SHOCK,Freeze Shock,ice,120,60,0,500,1
+FRENZY_PLANT,Frenzy Plant,grass,100,45,0,500,1
+FROST_BREATH,Frost Breath,ice,7,0,5,1000,2
+FRUSTRATION,Frustration,normal,10,70,0,500,1
+FURY_CUTTER,Fury Cutter,bug,3,0,4,500,1
+FUSION_BOLT,Fusion Bolt,electric,90,45,0,500,1
+FUSION_FLARE,Fusion Flare,fire,90,45,0,500,1
+FUTURE_SIGHT,Future Sight,psychic,110,65,0,500,1
+GEOMANCY,Geomancy,fairy,8,0,13,1500,3
+GIGATON_HAMMER,Gigaton Hammer,steel,130,60,0,500,1
+GIGA_DRAIN,Giga Drain,grass,50,80,0,500,1
+GIGA_IMPACT,Giga Impact,normal,150,80,0,500,1
+GLACIATE,Glaciate,ice,60,40,0,500,1
+GLAIVE_RUSH,Glaive Rush,dragon,90,40,0,500,1
+GRASS_KNOT,Grass Knot,grass,90,50,0,500,1
+GUNK_SHOT,Gunk Shot,poison,130,75,0,500,1
+GUST,Gust,flying,16,0,14,2000,4
+GYRO_BALL,Gyro Ball,steel,80,50,0,500,1
+HEART_STAMP,Heart Stamp,psychic,40,40,0,500,1
+HEAT_WAVE,Heat Wave,fire,75,45,0,500,1
+HEAVY_SLAM,Heavy Slam,steel,70,50,0,500,1
+HEX,Hex,ghost,7,0,13,1500,3
+HIDDEN_POWER_BUG,Hidden Power (Bug),bug,9,0,8,1500,3
+HIDDEN_POWER_DARK,Hidden Power (Dark),dark,9,0,8,1500,3
+HIDDEN_POWER_DRAGON,Hidden Power (Dragon),dragon,9,0,8,1500,3
+HIDDEN_POWER_ELECTRIC,Hidden Power (Electric),electric,9,0,8,1500,3
+HIDDEN_POWER_FIGHTING,Hidden Power (Fighting),fighting,9,0,8,1500,3
+HIDDEN_POWER_FIRE,Hidden Power (Fire),fire,9,0,8,1500,3
+HIDDEN_POWER_FLYING,Hidden Power (Flying),flying,9,0,8,1500,3
+HIDDEN_POWER_GHOST,Hidden Power (Ghost),ghost,9,0,8,1500,3
+HIDDEN_POWER_GRASS,Hidden Power (Grass),grass,9,0,8,1500,3
+HIDDEN_POWER_GROUND,Hidden Power (Ground),ground,9,0,8,1500,3
+HIDDEN_POWER_ICE,Hidden Power (Ice),ice,9,0,8,1500,3
+HIDDEN_POWER_NORMAL,Hidden Power,normal,9,0,8,1500,3
+HIDDEN_POWER_POISON,Hidden Power (Poison),poison,9,0,8,1500,3
+HIDDEN_POWER_PSYCHIC,Hidden Power (Psychic),psychic,9,0,8,1500,3
+HIDDEN_POWER_ROCK,Hidden Power (Rock),rock,9,0,8,1500,3
+HIDDEN_POWER_STEEL,Hidden Power (Steel),steel,9,0,8,1500,3
+HIDDEN_POWER_WATER,Hidden Power (Water),water,9,0,8,1500,3
+HIGH_HORSEPOWER,High Horsepower,ground,100,60,0,500,1
+HIGH_JUMP_KICK,High Jump Kick,fighting,110,55,0,500,1
+HORN_ATTACK,Horn Attack,normal,40,35,0,500,1
+HURRICANE,Hurricane,flying,110,60,0,500,1
+HYDRO_CANNON,Hydro Cannon,water,80,40,0,500,1
+HYDRO_PUMP,Hydro Pump,water,130,75,0,500,1
+HYDRO_PUMP_BLASTOISE,Hydro Pump Blastoise,water,90,80,0,500,1
+HYPER_BEAM,Hyper Beam,normal,150,80,0,500,1
+HYPER_FANG,Hyper Fang,normal,80,50,0,500,1
+ICE_BEAM,Ice Beam,ice,90,55,0,500,1
+ICE_BURN,Ice Burn,ice,120,60,0,500,1
+ICE_FANG,Ice Fang,ice,8,0,6,1000,2
+ICE_PUNCH,Ice Punch,ice,60,40,0,500,1
+ICE_SHARD,Ice Shard,ice,9,0,10,1500,3
+ICICLE_SPEAR,Icicle Spear,ice,70,40,0,500,1
+ICY_WIND,Icy Wind,ice,60,45,0,500,1
+INCINERATE,Incinerate,fire,20,0,20,2500,5
+INFESTATION,Infestation,bug,6,0,12,1500,3
+IRON_HEAD,Iron Head,steel,70,50,0,500,1
+IRON_TAIL,Iron Tail,steel,10,0,7,1500,3
+KARATE_CHOP,Karate Chop,fighting,5,0,9,1000,2
+LAST_RESORT,Last Resort,normal,90,55,0,500,1
+LEAFAGE,Leafage,grass,6,0,8,1000,2
+LEAF_BLADE,Leaf Blade,grass,70,35,0,500,1
+LEAF_STORM,Leaf Storm,grass,130,55,0,500,1
+LEAF_TORNADO,Leaf Tornado,grass,45,40,0,500,1
+LICK,Lick,ghost,3,0,3,500,1
+LIQUIDATION,Liquidation,water,70,45,0,500,1
+LOCK_ON,Lock On,normal,1,0,5,500,1
+LOW_KICK,Low Kick,fighting,5,0,8,1000,2
+LOW_SWEEP,Low Sweep,fighting,40,40,0,500,1
+LUNGE,Lunge,bug,60,45,0,500,1
+LUSTER_PURGE,Luster Purge,psychic,120,60,0,500,1
+MAGICAL_LEAF,Magical Leaf,grass,10,0,10,1500,3
+MAGMA_STORM,Magma Storm,fire,65,40,0,500,1
+MAGNET_BOMB,Magnet Bomb,steel,70,45,0,500,1
+MEGAHORN,Megahorn,bug,110,55,0,500,1
+MEGA_DRAIN,Mega Drain,grass,25,55,0,500,1
+METAL_CLAW,Metal Claw,steel,5,0,7,1000,2
+METAL_SOUND,Metal Sound,steel,5,0,8,1000,2
+METEOR_BEAM,Meteor Beam,rock,120,60,0,500,1
+METEOR_MASH,Meteor Mash,steel,100,45,0,500,1
+MIND_BLOWN,Mind Blown,fire,90,35,0,500,1
+MIRROR_COAT,Mirror Coat,psychic,60,55,0,500,1
+MIRROR_SHOT,Mirror Shot,steel,35,35,0,500,1
+MIST_BALL,Mist Ball,psychic,120,60,0,500,1
+MOONBLAST,Moonblast,fairy,110,60,0,500,1
+MOONGEIST_BEAM,Moongeist Beam,ghost,135,65,0,500,1
+MUDDY_WATER,Muddy Water,water,35,35,0,1000,2
+MUD_BOMB,Mud Bomb,ground,65,45,0,500,1
+MUD_SHOT,Mud Shot,ground,3,0,9,1000,2
+MUD_SLAP,Mud Slap,ground,11,0,10,1500,3
+MYSTICAL_FIRE,Mystical Fire,fire,60,45,0,500,1
+NATURES_MADNESS,Nature's Madness,fairy,80,50,0,500,1
+NIGHT_SHADE,Night Shade,ghost,70,45,0,500,1
+NIGHT_SLASH,Night Slash,dark,50,35,0,500,1
+OBLIVION_WING,Oblivion Wing,flying,85,50,0,500,1
+OBSTRUCT,Obstruct,dark,15,40,0,500,1
+OCTAZOOKA,Octazooka,water,50,50,0,500,1
+OMINOUS_WIND,Ominous Wind,ghost,45,45,0,500,1
+ORIGIN_PULSE,Origin Pulse,water,130,60,0,500,1
+OUTRAGE,Outrage,dragon,110,60,0,500,1
+OVERHEAT,Overheat,fire,130,55,0,500,1
+PARABOLIC_CHARGE,Parabolic Charge,electric,70,50,0,500,1
+PAYBACK,Payback,dark,110,60,0,500,1
+PECK,Peck,flying,6,0,8,1000,2
+PETAL_BLIZZARD,Petal Blizzard,grass,110,65,0,500,1
+PLASMA_FISTS,Plasma Fists,electric,60,35,0,500,1
+PLAY_ROUGH,Play Rough,fairy,90,60,0,500,1
+POISON_FANG,Poison Fang,poison,45,40,0,500,1
+POISON_JAB,Poison Jab,poison,7,0,7,1000,2
+POISON_STING,Poison Sting,poison,4,0,9,1000,2
+POLTERGEIST,Poltergeist,ghost,150,75,0,500,1
+POUND,Pound,normal,4,0,4,1000,2
+POWDER_SNOW,Powder Snow,ice,6,0,8,1000,2
+POWER_GEM,Power Gem,rock,85,50,0,500,1
+POWER_UP_PUNCH,Power-Up Punch,fighting,20,35,0,500,1
+POWER_WHIP,Power Whip,grass,90,50,0,500,1
+PRECIPICE_BLADES,Precipice Blades,ground,130,60,0,500,1
+PRESENT,Present,normal,3,0,12,1500,3
+PSYBEAM,Psybeam,psychic,70,60,0,500,1
+PSYCHIC,Psychic,psychic,75,55,0,500,1
+PSYCHIC_FANGS,Psychic Fangs,psychic,40,35,0,500,1
+PSYCHO_BOOST,Psycho Boost,psychic,70,35,0,500,1
+PSYCHO_CUT,Psycho Cut,psychic,4,0,9,1000,2
+PSYSHOCK,Psyshock,psychic,70,40,0,500,1
+PSYSTRIKE,Psystrike,psychic,90,45,0,500,1
+PSYWAVE,Psywave,psychic,3,0,4,500,1
+PYRO_BALL,Pyro Ball,fire,75,40,0,500,1
+QUICK_ATTACK,Quick Attack,normal,5,0,8,1000,2
+RAGE_FIST,Rage Fist,ghost,50,35,0,500,1
+RAZOR_LEAF,Razor Leaf,grass,9,0,4,1000,2
+RAZOR_SHELL,Razor Shell,water,35,35,0,500,1
+REST,Rest,normal,50,35,0,500,1
+RETURN,Return,normal,130,70,0,500,1
+ROAR_OF_TIME,Roar of Time,dragon,150,65,0,500,1
+ROCK_BLAST,Rock Blast,rock,50,40,0,500,1
+ROCK_SLIDE,Rock Slide,rock,75,45,0,500,1
+ROCK_SMASH,Rock Smash,fighting,9,0,7,1500,3
+ROCK_THROW,Rock Throw,rock,8,0,5,1000,2
+ROCK_TOMB,Rock Tomb,rock,75,50,0,500,1
+ROCK_WRECKER,Rock Wrecker,rock,110,50,0,500,1
+ROLLOUT,Rollout,rock,7,0,13,1500,3
+SACRED_FIRE,Sacred Fire,fire,130,65,0,500,1
+SACRED_SWORD,Sacred Sword,fighting,60,35,0,500,1
+SANDSEAR_STORM,Sandsear Storm,ground,60,45,0,500,1
+SAND_ATTACK,Sand Attack,ground,2,0,4,500,1
+SAND_TOMB,Sand Tomb,ground,40,40,0,500,1
+SCALD,Scald,water,85,50,0,500,1
+SCORCHING_SANDS,Scorching Sands,ground,80,50,0,500,1
+SCRATCH,Scratch,normal,4,0,2,500,1
+SECRET_SWORD,Secret Sword,fighting,70,35,0,500,1
+SEED_BOMB,Seed Bomb,grass,55,40,0,500,1
+SEED_FLARE,Seed Flare,grass,130,75,0,500,1
+SHADOW_BALL,Shadow Ball,ghost,100,50,0,500,1
+SHADOW_BONE,Shadow Bone,ghost,80,45,0,500,1
+SHADOW_CLAW,Shadow Claw,ghost,6,0,8,1000,2
+SHADOW_FORCE,Shadow Force,ghost,120,90,0,500,1
+SHADOW_PUNCH,Shadow Punch,ghost,55,35,0,500,1
+SHADOW_SNEAK,Shadow Sneak,ghost,75,50,0,500,1
+SIGNAL_BEAM,Signal Beam,bug,75,55,0,500,1
+SILVER_WIND,Silver Wind,bug,75,45,0,500,1
+SKULL_BASH,Skull Bash,normal,130,75,0,500,1
+SKY_ATTACK,Sky Attack,flying,75,50,0,500,1
+SLUDGE,Sludge,poison,70,40,0,500,1
+SLUDGE_BOMB,Sludge Bomb,poison,80,50,0,500,1
+SLUDGE_WAVE,Sludge Wave,poison,110,65,0,500,1
+SMACK_DOWN,Smack Down,rock,11,0,8,1500,3
+SNARL,Snarl,dark,5,0,13,1500,3
+SNIPE_SHOT,Snipe Shot,water,65,35,0,500,1
+SOLAR_BEAM,Solar Beam,grass,150,80,0,500,1
+SPACIAL_REND,Spacial Rend,dragon,95,55,0,500,1
+SPARK,Spark,electric,5,0,7,1000,2
+SPARKLING_ARIA,Sparkling Aria,water,80,45,0,500,1
+SPIRIT_SHACKLE,Spirit Shackle,ghost,50,40,0,500,1
+SPLASH,Splash,water,0,0,12,2000,4
+SPRINGTIDE_STORM,Springtide Storm (Speculative),fairy,60,45,0,500,1
+STEEL_WING,Steel Wing,steel,7,0,5,1000,2
+STOMP,Stomp,normal,55,40,0,500,1
+STONE_EDGE,Stone Edge,rock,100,55,0,500,1
+STRUGGLE,Struggle,normal,35,100,0,500,1
+STRUGGLE_BUG,Struggle Bug,bug,9,0,8,1500,3
+SUBMISSION,Submission,fighting,60,50,0,500,1
+SUCKER_PUNCH,Sucker Punch,dark,8,0,7,1000,2
+SUNSTEEL_STRIKE,Sunsteel Strike,steel,135,65,0,500,1
+SUPER_POWER,Superpower,fighting,85,40,0,500,1
+SURF,Surf,water,75,45,0,500,1
+SWIFT,Swift,normal,55,35,0,500,1
+SYNCHRONOISE,Synchronoise,psychic,80,50,0,500,1
+TACKLE,Tackle,normal,3,0,3,500,1
+TAKE_DOWN,Take Down,normal,5,0,8,1500,3
+TECHNO_BLAST_BURN,Techno Blast (Burn),fire,120,55,0,500,1
+TECHNO_BLAST_CHILL,Techno Blast (Chill),ice,120,55,0,500,1
+TECHNO_BLAST_DOUSE,Techno Blast (Douse),water,120,55,0,500,1
+TECHNO_BLAST_NORMAL,Techno Blast (Normal),normal,120,55,0,500,1
+TECHNO_BLAST_SHOCK,Techno Blast (Shock),electric,120,55,0,500,1
+THUNDER,Thunder,electric,100,60,0,500,1
+THUNDERBOLT,Thunderbolt,electric,90,55,0,500,1
+THUNDER_CAGE,Thunder Cage,electric,60,40,0,500,1
+THUNDER_FANG,Thunder Fang,electric,8,0,6,1000,2
+THUNDER_PUNCH,Thunder Punch,electric,60,40,0,500,1
+THUNDER_SHOCK,Thunder Shock,electric,4,0,9,1000,2
+TORCH_SONG,Torch Song,fire,70,45,0,500,1
+TRAILBLAZE,Trailblaze,grass,65,45,0,500,1
+TRANSFORM,Transform,normal,0,0,0,1500,3
+TRIPLE_AXEL,Triple Axel,ice,60,45,0,500,1
+TRI_ATTACK,Tri Attack,normal,65,50,0,500,1
+TWISTER,Twister,dragon,70,40,0,500,1
+UPPER_HAND,Upper Hand,fighting,70,40,0,500,1
+VICE_GRIP,Vise Grip,normal,70,40,0,500,1
+VINE_WHIP,Vine Whip,grass,5,0,8,1000,2
+VOLT_SWITCH,Volt Switch,electric,14,0,16,2000,4
+VOLT_TACKLE,Volt Tackle,electric,90,40,0,500,1
+V_CREATE,V-Create,fire,95,40,0,500,1
+WATERFALL,Waterfall,water,11,0,10,1500,3
+WATER_GUN,Water Gun,water,3,0,3,500,1
+WATER_GUN_FAST_BLASTOISE,Water Gun Fast Blastoise,water,6,0,4,1000,2
+WATER_PULSE,Water Pulse,water,80,50,0,500,1
+WATER_SHURIKEN,Water Shuriken,water,6,0,14,1500,3
+WEATHER_BALL_FIRE,Weather Ball (Fire),fire,60,35,0,500,1
+WEATHER_BALL_ICE,Weather Ball (Ice),ice,60,35,0,500,1
+WEATHER_BALL_NORMAL,Weather Ball (Normal),normal,60,35,0,500,1
+WEATHER_BALL_ROCK,Weather Ball (Rock),rock,60,35,0,500,1
+WEATHER_BALL_WATER,Weather Ball (Water),water,60,35,0,500,1
+WILDBOLT_STORM,Wildbolt Storm,electric,60,45,0,500,1
+WILD_CHARGE,Wild Charge,electric,100,45,0,500,1
+WING_ATTACK,Wing Attack,flying,5,0,8,1000,2
+WRAP,Wrap,normal,70,45,0,500,1
+X_SCISSOR,X-Scissor,bug,65,40,0,500,1
+YAWN,Yawn,normal,0,0,12,2000,4
+ZAP_CANNON,Zap Cannon,electric,150,80,0,500,1
+ZEN_HEADBUTT,Zen Headbutt,psychic,8,0,6,1500,3

@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [OwnedPokemon::class, FamilyResource::class, MegaEnergy::class],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class PokeDatabase : RoomDatabase() {
@@ -64,12 +64,27 @@ abstract class PokeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v3 → v4: record each Pokémon's current moveset, so inventory counters can be
+         * scored on the moves it actually has rather than the best it could learn.
+         *
+         * Plain ADD COLUMNs — every existing row keeps its data and simply reads null
+         * until the next scan fills the moves in.
+         */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN fastMove TEXT")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN chargedMove TEXT")
+            }
+        }
+
         @Volatile private var instance: PokeDatabase? = null
 
         fun get(context: Context): PokeDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, PokeDatabase::class.java, "pokebuddy.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .build().also { instance = it }
         }
     }
 }
