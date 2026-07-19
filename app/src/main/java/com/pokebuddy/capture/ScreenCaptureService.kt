@@ -206,7 +206,9 @@ class ScreenCaptureService : Service() {
         watching = true
         watcher.reset()
         overlay.screenWatched = true
-        Log.i(TAG, "Watching screen every ${WATCH_POLL_MS}ms")
+        Log.i(TAG, "Watching screen every ${WATCH_POLL_MS}ms " +
+            "(accessibility ${if (GestureService.isConnected) "on" else "off — foreground " +
+                "unknown, relying on screen content"})")
         bgHandler.post(watchTick)
     }
 
@@ -221,7 +223,11 @@ class ScreenCaptureService : Service() {
     /** One poll: fingerprint the current frame, and read it only if the screen changed. */
     private fun watchOnce() {
         val reader = imageReader ?: return
-        if (!GestureService.isPogoForeground) {
+        // Only trust the foreground check when the accessibility service is actually
+        // running. Treating "service not enabled" as "not Pokémon GO" silently disabled
+        // watching entirely — and watching needs neither gestures nor accessibility, just
+        // MediaProjection. When we can't know what's in front, the screen content decides.
+        if (GestureService.isConnected && !GestureService.isPogoForeground) {
             overlay.hide()
             return
         }
