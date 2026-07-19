@@ -83,6 +83,38 @@ through it and keep the ones that are actually solvable: Mewtwo at 300 attack an
 182 will rarely both explain the same CP/HP. Where more than one survives, keep reporting the
 ambiguity rather than guessing.
 
+### Sprite image matching — considered, not recommended first
+
+Could we identify variants from the sprite instead of the type row? Technically yes; the
+frame is already in hand and the sprite sits in a known region. But:
+
+- PoGO renders an **animated 3D model**, not a fixed 2D sprite. Pose, lighting and framing
+  shift between frames, which is exactly what perceptual hashing is bad at.
+- It needs a reference set. Hashes themselves are tiny (a few bytes each, so all species and
+  forms would fit comfortably), but generating them means sourcing artwork per form, and
+  matching a 3D pose against 2D reference art is the weak link, not storage.
+
+**UI markers are the better first move.** Shiny, lucky and Dynamax-capable all show dedicated
+on-screen chrome (sparkle icon, background treatment, a Dynamax button). Detecting a fixed
+UI element in a known region is far more robust than matching a rendered model, and it's the
+same technique already proven on the appraisal bars. Reserve sprite matching for cases with
+no UI marker at all — Armored Mewtwo being the likely one.
+
+### Dynamax capability
+
+**Not in pvpoke's GameMaster** — zero entries carry any dynamax/gigantamax tag, so it cannot
+be derived from the current data source. Two options:
+
+1. Read it off the screen (PoGO shows Dynamax UI on capable Pokémon) — consistent with how
+   everything else here works, and needs no new data source.
+2. Add a second data source (PokeMiners' GAME_MASTER carries the flags) — more data to keep
+   in sync, and a species-level capability rather than a per-Pokémon fact.
+
+Option 1 preferred, and it folds into the same UI-marker work as shiny/lucky.
+
+Unused metadata already in the GameMaster that may be worth carrying later:
+`legendary`, `mythical`, `ultrabeast`, `regional`, `starter`, `untradeable`, `shadoweligible`.
+
 ### Tracked flags (requested, not built)
 
 `shiny`, `lucky`, `special background` (and Armored/costume labelling) need DB columns and a
