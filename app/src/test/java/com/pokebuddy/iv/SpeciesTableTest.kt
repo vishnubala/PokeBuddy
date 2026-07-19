@@ -107,6 +107,13 @@ class SpeciesTableTest {
         assertNull(deoxys)
     }
 
+    @Test fun forms_for_reports_the_choices_behind_an_ambiguous_name() {
+        val forms = SpeciesTable.formsFor("Raichu").map { it.name }
+        assertEquals(listOf("Raichu", "Raichu (Alolan)"), forms.sorted())
+        // A species with no alternate forms isn't ambiguous.
+        assertEquals(1, SpeciesTable.formsFor("Bulbasaur").size)
+    }
+
     @Test fun family_is_shared_across_an_evolution_line() {
         assertEquals(
             SpeciesTable.species("Pikachu")?.family,

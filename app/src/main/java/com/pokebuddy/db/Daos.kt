@@ -67,12 +67,12 @@ interface OwnedPokemonDao {
 }
 
 @Dao
-interface SpeciesResourceDao {
+interface FamilyResourceDao {
     @Upsert
-    fun upsert(resource: SpeciesResource)
+    fun upsert(resource: FamilyResource)
 
-    @Query("SELECT * FROM species_resource WHERE species = :species")
-    fun get(species: String): SpeciesResource?
+    @Query("SELECT * FROM family_resource WHERE family = :family")
+    fun get(family: String): FamilyResource?
 }
 
 @Dao

@@ -8,13 +8,13 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [OwnedPokemon::class, SpeciesResource::class, MegaEnergy::class],
-    version = 2,
+    entities = [OwnedPokemon::class, FamilyResource::class, MegaEnergy::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class PokeDatabase : RoomDatabase() {
     abstract fun ownedDao(): OwnedPokemonDao
-    abstract fun speciesDao(): SpeciesResourceDao
+    abstract fun familyDao(): FamilyResourceDao
     abstract fun megaEnergyDao(): MegaEnergyDao
 
     companion object {
@@ -44,12 +44,32 @@ abstract class PokeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v2 → v3: candy moves from a per-species table to a per-family one (see
+         * [FamilyResource]).
+         *
+         * species_resource is dropped rather than migrated: its rows were keyed by species
+         * with no family column to map from, and the values are re-read from the game the
+         * next time any Pokémon of that family is scanned. owned_pokemon and mega_energy
+         * are untouched.
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS family_resource (" +
+                        "family TEXT NOT NULL, candy INTEGER NOT NULL, " +
+                        "candyXl INTEGER NOT NULL, PRIMARY KEY(family))"
+                )
+                db.execSQL("DROP TABLE IF EXISTS species_resource")
+            }
+        }
+
         @Volatile private var instance: PokeDatabase? = null
 
         fun get(context: Context): PokeDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, PokeDatabase::class.java, "pokebuddy.db"
-            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
         }
     }
 }

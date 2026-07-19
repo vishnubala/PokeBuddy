@@ -138,5 +138,12 @@ object SpeciesTable {
         return null
     }
 
+    /**
+     * The forms a bare name could refer to, excluding transient mega/primal states.
+     * Size > 1 means [resolve] needs types to choose — the caller can say "which form?"
+     * instead of the misleading "not in the table".
+     */
+    fun formsFor(name: String): List<Species> = byBaseName[normalize(name)].orEmpty()
+
     operator fun get(name: String): BaseStats? = species(name)?.stats
 }

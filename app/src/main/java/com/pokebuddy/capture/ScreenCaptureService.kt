@@ -30,7 +30,7 @@ import com.pokebuddy.automation.GestureService
 import com.pokebuddy.db.MegaEnergy
 import com.pokebuddy.db.OwnedPokemon
 import com.pokebuddy.db.PokeDatabase
-import com.pokebuddy.db.SpeciesResource
+import com.pokebuddy.db.FamilyResource
 import com.pokebuddy.iv.BaseStats
 import com.pokebuddy.iv.CpResolver
 import com.pokebuddy.iv.DecodeResult
@@ -449,7 +449,13 @@ class ScreenCaptureService : Service() {
                 db.ownedDao().findMatch(s.name, s.cp, s.hpMax) else null
             val storedPercent = stored?.ivPercent.takeIf { s.decode?.isPercentExact != true }
 
+            // Distinguish "we don't have this species" from "we can't tell which form" —
+            // the second is a read we could still complete, so saying it plainly tells you
+            // the type row was missed rather than implying the Pokédex is incomplete.
+            val forms = s.name?.let { SpeciesTable.formsFor(it) }.orEmpty()
             val ivText = when {
+                s.base == null && forms.size > 1 ->
+                    "Which form? ${forms.joinToString(" / ") { it.name }}\n(type row unreadable)"
                 s.base == null -> "IV: '${s.name ?: "?"}' not in base-stat table"
                 s.cp == null -> "IV: waiting for a clean CP read"
                 storedPercent != null -> {
@@ -545,23 +551,25 @@ class ScreenCaptureService : Service() {
         val infos = frames.map { DetailParser.parse(it) }
         val candySpecies = mode(infos.mapNotNull { it.candySpecies })
         val candy = mode(infos.mapNotNull { it.candy })
-        if (candySpecies != null && candy != null) {
-            val existing = db.speciesDao().get(candySpecies)
-            db.speciesDao().upsert(
-                SpeciesResource(
-                    species = candySpecies,
+        // The label names the family's base species ("PIKACHU CANDY"); candy itself is
+        // shared across the whole family, so store it under the family id.
+        val family = candySpecies?.let { SpeciesTable.species(it)?.family }
+        if (family != null && candy != null) {
+            val existing = db.familyDao().get(family)
+            db.familyDao().upsert(
+                FamilyResource(
+                    family = family,
                     candy = candy,
                     // Keep a previously-read XL count rather than zeroing it: the detail
-                    // screen only shows XL candy once the species has any.
+                    // screen only shows XL candy once the family has any.
                     candyXl = mode(infos.mapNotNull { it.candyXl }) ?: existing?.candyXl ?: 0,
-                    megaLevelUnlocked = existing?.megaLevelUnlocked ?: 0,
                 )
             )
         }
         // One row per variant seen; a species with no mega simply writes nothing.
         val megas = mode(infos.map { it.megaEnergy }.filter { it.isNotEmpty() }) ?: return
         megas.forEach { db.megaEnergyDao().upsert(MegaEnergy(it.species, it.variant, it.amount)) }
-        Log.i(TAG, "resources: $candySpecies candy=$candy; mega=" +
+        Log.i(TAG, "resources: $family candy=$candy; mega=" +
             megas.joinToString { "${it.species}${it.variant} ${it.amount}" })
     }
 

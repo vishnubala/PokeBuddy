@@ -31,15 +31,21 @@ data class OwnedPokemon(
 )
 
 /**
- * Per-species resources (candy, mega/primal energy, highest unlocked mega level).
- * These are species-level in Pokémon GO, so they live in their own table.
+ * Candy, keyed by EVOLUTION FAMILY rather than species.
+ *
+ * In Pokémon GO candy is shared across a family: a Pikachu's screen and a Raichu's screen
+ * report the same "PIKACHU CANDY" number, and spending it on one depletes it for the other.
+ * Keying by species would store that single pool once per species and let the copies drift
+ * apart, so [family] (from base_stats.csv) is the primary key.
+ *
+ * The label on screen names the family's base species ("PIKACHU CANDY"), which is resolved
+ * to a family id before storing.
  */
-@Entity(tableName = "species_resource")
-data class SpeciesResource(
-    @PrimaryKey val species: String,
+@Entity(tableName = "family_resource")
+data class FamilyResource(
+    @PrimaryKey val family: String,
     val candy: Int = 0,
     val candyXl: Int = 0,
-    val megaLevelUnlocked: Int = 0,
 )
 
 /**
