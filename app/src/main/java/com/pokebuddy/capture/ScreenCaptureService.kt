@@ -89,6 +89,9 @@ class ScreenCaptureService : Service() {
         /** How often to fingerprint a frame while watching. Cheap: no OCR unless changed. */
         private const val WATCH_POLL_MS = 600L
 
+        /** Let a screen transition finish animating before reading it. */
+        private const val WATCH_SETTLE_MS = 400L
+
         /** Sentinel: nothing Pokémon-related on screen, so show no panel at all. */
         private const val NO_SCREEN = "No Pokémon screen detected"
 
@@ -236,7 +239,19 @@ class ScreenCaptureService : Service() {
         frame.recycle()
         if (!changed) return
 
-        // The screen settled into something new — read it properly.
+        // The screen settled into something new. Let the transition finish, then confirm
+        // it's STILL the same screen before reading: a detail screen animates in over a few
+        // hundred ms, and reading too early mixes the new name with the old CP.
+        Thread.sleep(WATCH_SETTLE_MS)
+        val check = grabBitmap(reader) ?: return
+        val stable = watcher.stillCurrent(check)
+        check.recycle()
+        if (!stable) {
+            // Still moving — drop this read and let the next tick pick it up cleanly.
+            watcher.reset()
+            return
+        }
+
         val frames = ArrayList<OcrResult>()
         repeat(2) { i ->
             grabBitmap(reader)?.let { f ->
@@ -246,6 +261,16 @@ class ScreenCaptureService : Service() {
             if (i == 0) Thread.sleep(120)
         }
         if (frames.isEmpty()) return
+
+        // OCR itself takes time; if the screen moved on while we were reading, the result
+        // describes a screen that is no longer in front. Discard rather than show it.
+        val after = grabBitmap(reader)
+        val sameAfter = after?.let { watcher.stillCurrent(it) } ?: true
+        after?.recycle()
+        if (!sameAfter) {
+            watcher.reset()
+            return
+        }
 
         val panel = buildResultPanel(frames, null)
         // Only a Pokémon-related screen gets a panel; the map and menus get silence rather

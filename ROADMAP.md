@@ -38,6 +38,28 @@ to be rediscovered.
 6. **Shiny**: no DB column yet; need a capture to see how shiny is marked visually.
    Search `shiny` lists them.
 
+### Known hole: identity is not stable
+
+Rows are matched on **species + CP + maxHP** (`OwnedPokemonDao.findMatch`). That holds for a
+rescan or a move purchase, but it is not an identity — it's a fingerprint of mutable values:
+
+| Action | Result today | Correct? |
+|---|---|---|
+| Rescan the same Pokémon | updates the row | yes |
+| Buy a 2nd charged move | updates the row (CP/HP unchanged) | yes |
+| **Power up** | CP and HP both change → **new duplicate row** | no |
+| **Evolve** | species, CP and HP change → **new duplicate row** | no |
+| Two genuinely identical Pokémon | collapse into one row | no (undercount) |
+
+PoGO exposes no id on screen, so a true key isn't available. The best proxy is
+**weight + height**: both are per-individual constants fixed at catch, unchanged by powering
+up, and already parsed into `DetailInfo`. Species + weight + height would survive power-ups
+and separate near-identical Pokémon. Catch date/location is a further tiebreaker, at the cost
+of storing personal data in the index.
+
+Worth fixing BEFORE the first full box scan, since a scan followed by normal play would
+otherwise accumulate duplicates.
+
 ## Deferred, with reasons
 
 - **Egg-hatch hooks** — needs a hatch to happen on demand; not practical to sit and wait.

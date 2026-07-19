@@ -70,6 +70,18 @@ class ScreenWatcher {
         return false
     }
 
+    /**
+     * Is [frame] still the screen that [offer] last accepted?
+     *
+     * Guards the gap between deciding to read and actually reading: OCR takes a few hundred
+     * ms, and if the screen moved on in between we'd mix fields from two screens — which
+     * showed up live as a Pokémon's name paired with the previous Pokémon's CP.
+     */
+    fun stillCurrent(frame: Bitmap): Boolean {
+        val baseline = current ?: return false
+        return distance(fingerprint(frame), baseline) < CHANGE_THRESHOLD
+    }
+
     /** Forget the current screen, so the next frame reads as new. */
     fun reset() {
         current = null
