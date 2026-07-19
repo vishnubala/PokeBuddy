@@ -82,6 +82,16 @@ class ScreenCaptureService : Service() {
         // Opt-in: taps through the appraisal, then reads it. Requires GestureService.
         const val ACTION_AUTO_APPRAISE = "com.pokebuddy.AUTO_APPRAISE"
 
+        /** Follow the game by itself: read whenever the screen changes and settles. */
+        const val ACTION_WATCH = "com.pokebuddy.WATCH"
+        const val ACTION_UNWATCH = "com.pokebuddy.UNWATCH"
+
+        /** How often to fingerprint a frame while watching. Cheap: no OCR unless changed. */
+        private const val WATCH_POLL_MS = 600L
+
+        /** Sentinel: nothing Pokémon-related on screen, so show no panel at all. */
+        private const val NO_SCREEN = "No Pokémon screen detected"
+
         const val EXTRA_RESULT_CODE = "resultCode"
         const val EXTRA_RESULT_DATA = "resultData"
         const val EXTRA_SUMMARY = "summary"
@@ -103,6 +113,9 @@ class ScreenCaptureService : Service() {
     private var lastDetail: DetailScan? = null
     private var lastDetailRowId: Long? = null
 
+    private val watcher = ScreenWatcher()
+    @Volatile private var watching = false
+
     private val ocr = OcrEngine()
     private val overlay by lazy { OverlayController(this) }
     private val db by lazy { PokeDatabase.get(this) }
@@ -110,6 +123,8 @@ class ScreenCaptureService : Service() {
     private val captureReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
+                ACTION_WATCH -> startWatching()
+                ACTION_UNWATCH -> stopWatching()
                 ACTION_AUTO_APPRAISE -> {
                     Log.i(TAG, "Auto-appraise triggered via broadcast")
                     bgHandler.post { handleAutoAppraise() }
@@ -141,12 +156,17 @@ class ScreenCaptureService : Service() {
         }.onFailure { Log.e(TAG, "Failed to load game data assets", it) }
         // Keep the panel off every app but Pokémon GO.
         GestureService.onForegroundChanged = { isPogo -> overlay.onForegroundApp(isPogo) }
+        overlay.onRescan = { watcher.reset(); bgHandler.post { handleCapture() } }
         bgThread = HandlerThread("capture").apply { start() }
         bgHandler = Handler(bgThread.looper)
         // RECEIVER_EXPORTED so `adb shell am broadcast` (a different uid) can reach it.
         ContextCompat.registerReceiver(
             this, captureReceiver,
-            IntentFilter(ACTION_CAPTURE_NOW).apply { addAction(ACTION_AUTO_APPRAISE) },
+            IntentFilter(ACTION_CAPTURE_NOW).apply {
+                addAction(ACTION_AUTO_APPRAISE)
+                addAction(ACTION_WATCH)
+                addAction(ACTION_UNWATCH)
+            },
             ContextCompat.RECEIVER_EXPORTED
         )
     }
@@ -156,9 +176,81 @@ class ScreenCaptureService : Service() {
             ACTION_START -> handleStart(intent)
             ACTION_CAPTURE -> bgHandler.post { handleCapture() }
             ACTION_AUTO_APPRAISE -> bgHandler.post { handleAutoAppraise() }
+            ACTION_WATCH -> startWatching()
+            ACTION_UNWATCH -> stopWatching()
             ACTION_STOP -> { teardown(); stopSelf() }
         }
         return START_NOT_STICKY
+    }
+
+    // --- Screen watching -------------------------------------------------------------
+    //
+    // Pokémon GO fires no accessibility events when you move between its own screens, so
+    // the only way for the overlay to follow along is to look at the pixels. Fingerprinting
+    // a frame is cheap; OCR only runs once the picture has actually changed and settled.
+
+    private val watchTick = object : Runnable {
+        override fun run() {
+            if (!watching) return
+            runCatching { watchOnce() }.onFailure { Log.e(TAG, "watch tick failed", it) }
+            bgHandler.postDelayed(this, WATCH_POLL_MS)
+        }
+    }
+
+    private fun startWatching() {
+        if (watching) return
+        if (imageReader == null) {
+            Log.w(TAG, "Cannot watch — capture not armed")
+            return
+        }
+        watching = true
+        watcher.reset()
+        overlay.screenWatched = true
+        Log.i(TAG, "Watching screen every ${WATCH_POLL_MS}ms")
+        bgHandler.post(watchTick)
+    }
+
+    private fun stopWatching() {
+        watching = false
+        overlay.screenWatched = false
+        bgHandler.removeCallbacks(watchTick)
+        overlay.hide()
+        Log.i(TAG, "Stopped watching")
+    }
+
+    /** One poll: fingerprint the current frame, and read it only if the screen changed. */
+    private fun watchOnce() {
+        val reader = imageReader ?: return
+        if (!GestureService.isPogoForeground) {
+            overlay.hide()
+            return
+        }
+        val frame = grabBitmap(reader) ?: return
+        val changed = watcher.offer(frame)
+        frame.recycle()
+        if (!changed) return
+
+        // The screen settled into something new — read it properly.
+        val frames = ArrayList<OcrResult>()
+        repeat(2) { i ->
+            grabBitmap(reader)?.let { f ->
+                frames.add(ocr.recognizeBlocking(f))
+                f.recycle()
+            }
+            if (i == 0) Thread.sleep(120)
+        }
+        if (frames.isEmpty()) return
+
+        val panel = buildResultPanel(frames, null)
+        // Only a Pokémon-related screen gets a panel; the map and menus get silence rather
+        // than a stale card, which is the whole point of watching.
+        if (panel == NO_SCREEN) {
+            overlay.hide()
+        } else {
+            runCatching { persistScan(frames, null) }.onFailure { Log.e(TAG, "persist failed", it) }
+            overlay.show(panel)
+            Log.i(TAG, "watch: $panel")
+        }
     }
 
     private fun handleStart(intent: Intent) {
@@ -477,12 +569,16 @@ class ScreenCaptureService : Service() {
             return "★ ${s.name ?: "?"}\nCP ${s.cp ?: "?"}   HP ${s.hpCur ?: "?"}/${s.hpMax ?: "?"}\n$ivText$rank"
         }
         encounterPanel(frames)?.let { return it }
+        // A tile only counts if its name is a real species. The map pairs the trainer name
+        // with the level ("vlamboyant", 28) which otherwise parses as a perfectly good tile,
+        // leaving the panel up over the map claiming a box scan.
         val tiles = GridParser.parse(frames.first().lines)
+            .filter { SpeciesTable.formsFor(it.name).isNotEmpty() || SpeciesTable[it.name] != null }
         if (tiles.isNotEmpty()) {
             val top = tiles.first()
             return "Box scan: ${tiles.size} shown\nTop: ${top.name} CP ${top.cp}"
         }
-        return "No Pokémon screen detected"
+        return NO_SCREEN
     }
 
     /** Persist a confident detail scan into the local index, or refine the row a previous

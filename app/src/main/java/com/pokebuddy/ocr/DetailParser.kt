@@ -28,8 +28,13 @@ data class DetailInfo(
     /** Current moveset. Only present once the detail screen is scrolled far enough to
      *  show the move rows — the charged move sits below the fold on first view. */
     val fastMove: String? = null,
-    val chargedMove: String? = null,
-)
+    /** ALL charged moves, in screen order. A Pokémon can be given a second charged move,
+     *  so this is a list rather than a single value. */
+    val chargedMoves: List<String> = emptyList(),
+) {
+    val chargedMove: String? get() = chargedMoves.firstOrNull()
+    val chargedMove2: String? get() = chargedMoves.getOrNull(1)
+}
 
 /**
  * A single "<SPECIES> MEGA ENERGY [X|Y]" reading.
@@ -114,7 +119,7 @@ object DetailParser {
             },
             megaEnergy = megaEnergy(lines),
             fastMove = moves.firstOrNull { it.isFast }?.name,
-            chargedMove = moves.firstOrNull { !it.isFast }?.name,
+            chargedMoves = moves.filterNot { it.isFast }.map { it.name }.distinct(),
             types = types,
         )
     }

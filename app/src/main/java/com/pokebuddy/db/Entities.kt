@@ -31,6 +31,8 @@ data class OwnedPokemon(
      *  MoveTable resolves it either way. */
     val fastMove: String? = null,
     val chargedMove: String? = null,
+    /** Second charged move, once unlocked. Null for Pokémon that only have one. */
+    val chargedMove2: String? = null,
     val appraisalText: String? = null,
     val capturedAt: Long = System.currentTimeMillis(),
 )

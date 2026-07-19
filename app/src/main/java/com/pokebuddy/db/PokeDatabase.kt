@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [OwnedPokemon::class, FamilyResource::class, MegaEnergy::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class PokeDatabase : RoomDatabase() {
@@ -78,12 +78,19 @@ abstract class PokeDatabase : RoomDatabase() {
             }
         }
 
+        /** v4 → v5: a Pokémon can be taught a SECOND charged move. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN chargedMove2 TEXT")
+            }
+        }
+
         @Volatile private var instance: PokeDatabase? = null
 
         fun get(context: Context): PokeDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, PokeDatabase::class.java, "pokebuddy.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
         }
     }

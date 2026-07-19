@@ -54,7 +54,12 @@ class OverlayController(private val context: Context) {
 
     /** Set false by the user tapping ✕; no panel is drawn again until the next scan. */
     @Volatile private var dismissed = false
+    /** True while a ScreenWatcher is driving show/hide from actual screen changes. */
+    @Volatile var screenWatched = false
     @Volatile private var pogoInFront = true
+
+    /** Invoked by the ⟳ button — re-reads the screen on demand. */
+    @Volatile var onRescan: (() -> Unit)? = null
 
     private val autoDismiss = Runnable { hide() }
 
@@ -71,6 +76,13 @@ class OverlayController(private val context: Context) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             text = "PokeBuddy ready"
         }
+        val rescan = TextView(context).apply {
+            text = "⟳"
+            setTextColor(0xFF8FD3FF.toInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            setPadding(28, 0, 8, 0)
+            setOnClickListener { onRescan?.invoke() }
+        }
         val close = TextView(context).apply {
             text = "✕"
             setTextColor(0xFFBBBBBB.toInt())
@@ -83,6 +95,7 @@ class OverlayController(private val context: Context) {
             setBackgroundColor(0xCC101418.toInt())
             setPadding(28, 24, 20, 24)
             addView(body, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(rescan)
             addView(close)
         }
 
@@ -154,7 +167,8 @@ class OverlayController(private val context: Context) {
         label?.text = text
         root?.visibility = View.VISIBLE
         main.removeCallbacks(autoDismiss)
-        main.postDelayed(autoDismiss, AUTO_DISMISS_MS)
+        // Only fall back to a timeout when nothing is watching the screen for us.
+        if (!screenWatched) main.postDelayed(autoDismiss, AUTO_DISMISS_MS)
     }
 
     /** Blank the panel so it isn't part of the next captured frame. */
