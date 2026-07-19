@@ -68,11 +68,14 @@ interface OwnedPokemonDao {
      */
     @Query(
         "SELECT * FROM owned_pokemon WHERE species = :species AND weight IS :weight " +
-            "AND height IS :height AND (:caughtDate IS NULL OR caughtDate IS NULL " +
-            "OR caughtDate = :caughtDate) LIMIT 1"
+            "AND height IS :height " +
+            "AND (:caughtDate IS NULL OR caughtDate IS NULL OR caughtDate = :caughtDate) " +
+            "AND (:location IS NULL OR caughtLocation IS NULL OR caughtLocation = :location) " +
+            "LIMIT 1"
     )
     fun findByIdentity(
-        species: String, weight: String?, height: String?, caughtDate: String?,
+        species: String, weight: String?, height: String?,
+        caughtDate: String?, location: String?,
     ): OwnedPokemon?
 
     /** Backfills identity onto a row indexed before these columns existed. */

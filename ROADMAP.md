@@ -60,6 +60,35 @@ of storing personal data in the index.
 Worth fixing BEFORE the first full box scan, since a scan followed by normal play would
 otherwise accumulate duplicates.
 
+### Variants the type row cannot separate
+
+Form disambiguation uses the on-screen type row, which works for regional forms (Alolan
+Grimer is poison/dark vs plain poison). It **fails** where a variant shares its base form's
+typing:
+
+| Variant | Types | Attack | Problem |
+|---|---|---|---|
+| Mewtwo vs **Mewtwo (Armored)** | both `psychic` | 300 vs **182** | huge stat gap, identical types |
+| Dialga vs **Dialga (Origin)** | both `steel/dragon` | 275 vs 270 | identical types |
+| Palkia vs **Palkia (Origin)** | both `water/dragon` | 280 vs 286 | identical types |
+| Pikachu costumes (Libre, Flying, …) | all `electric` | all 112 | **stats identical — IV maths unaffected** |
+
+Costumes are therefore harmless for correctness; they only matter for labelling. Armored and
+Origin forms are not: picking the wrong one produces a confidently wrong IV. Today `resolve`
+returns null for these and the panel says "Which form?", which is honest but unhelpful.
+
+**Proposed fix — disambiguate by feasibility.** `IvDecoder` already rejects a species whose
+CP+HP admit no valid IV solution (the guard behind `CpResolver`). Run the candidate forms
+through it and keep the ones that are actually solvable: Mewtwo at 300 attack and Armored at
+182 will rarely both explain the same CP/HP. Where more than one survives, keep reporting the
+ambiguity rather than guessing.
+
+### Tracked flags (requested, not built)
+
+`shiny`, `lucky`, `special background` (and Armored/costume labelling) need DB columns and a
+detection method. Shiny and lucky are visual markers rather than text, so they likely need
+pixel checks like the appraisal bars, not OCR. Captures needed before designing this.
+
 ## Settings, backup and export
 
 Requested; not built yet.

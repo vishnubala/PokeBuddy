@@ -661,7 +661,7 @@ class ScreenCaptureService : Service() {
         val caughtDate = mode(details.mapNotNull { it.caughtDate })
         val existing =
             (if (weight != null && height != null)
-                dao.findByIdentity(s.name, weight, height, caughtDate) else null)
+                dao.findByIdentity(s.name, weight, height, caughtDate, caughtLocation) else null)
                 ?: dao.findMatch(s.name, s.cp, s.hpMax)
         val id: Long
         val action: String
