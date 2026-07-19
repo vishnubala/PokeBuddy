@@ -37,6 +37,16 @@ class GestureService : AccessibilityService() {
 
         /** True when Pokémon GO is the app we last saw come to the foreground. */
         val isPogoForeground: Boolean get() = instance?.lastPackage == POGO
+
+        /**
+         * Notified whenever the foreground app changes, with true for Pokémon GO.
+         *
+         * This is how the overlay learns to get out of the way: PokeBuddy must not draw
+         * over anything but the game. NB Pokémon GO is a Unity app, so this fires when you
+         * switch APPS but not when you move between screens inside the game.
+         */
+        @Volatile
+        var onForegroundChanged: ((isPogo: Boolean) -> Unit)? = null
     }
 
     @Volatile private var lastPackage: String? = null
@@ -51,7 +61,14 @@ class GestureService : AccessibilityService() {
         // Used only to know which app is in front, so automation can refuse to tap
         // into anything other than Pokémon GO.
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            event.packageName?.toString()?.let { lastPackage = it }
+            event.packageName?.toString()?.let { pkg ->
+                // Our own overlay window raises events too; treating it as "another app"
+                // would make the panel hide itself the instant it appeared.
+                if (pkg == packageName) return
+                val changed = pkg != lastPackage
+                lastPackage = pkg
+                if (changed) onForegroundChanged?.invoke(pkg == POGO)
+            }
         }
     }
 

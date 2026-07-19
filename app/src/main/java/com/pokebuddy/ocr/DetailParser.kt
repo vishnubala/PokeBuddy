@@ -1,5 +1,6 @@
 package com.pokebuddy.ocr
 
+import com.pokebuddy.iv.MoveTable
 import kotlin.math.abs
 
 /**
@@ -24,6 +25,10 @@ data class DetailInfo(
     val candySpecies: String? = null,
     /** One entry per mega-energy label found; empty for species without a mega. */
     val megaEnergy: List<MegaEnergyRead> = emptyList(),
+    /** Current moveset. Only present once the detail screen is scrolled far enough to
+     *  show the move rows — the charged move sits below the fold on first view. */
+    val fastMove: String? = null,
+    val chargedMove: String? = null,
 )
 
 /**
@@ -51,6 +56,9 @@ object DetailParser {
     // "PIKACHU CANDY" but NOT "PIKACHU CANDY XL" — XL is a separate resource.
     private val CANDY_RE = Regex("^(.+?)\\s+CANDY$", RegexOption.IGNORE_CASE)
     private val CANDY_XL_RE = Regex("^(.+?)\\s+CANDY\\s*XL$", RegexOption.IGNORE_CASE)
+    // The move-type icon OCRs as a stray leading glyph, with or without a space:
+    // "O Poison Jab", "OSludge Bomb".
+    private val MOVE_ICON_RE = Regex("^[O0Qo()@]\\s*")
 
     fun parse(result: OcrResult): DetailInfo {
         val lines = result.lines
@@ -82,6 +90,7 @@ object DetailParser {
             .maxByOrNull { it.box.h }
             ?.text?.trim()
 
+        val moves = moves(lines)
         val types = lines.firstNotNullOfOrNull { line ->
             TYPE_RE.find(line.text.trim())?.let { listOf(it.groupValues[1], it.groupValues[2]) }
         } ?: emptyList()
@@ -104,9 +113,27 @@ object DetailParser {
                 CANDY_RE.find(it.text.trim())?.groupValues?.get(1)?.titleCase()
             },
             megaEnergy = megaEnergy(lines),
+            fastMove = moves.firstOrNull { it.isFast }?.name,
+            chargedMove = moves.firstOrNull { !it.isFast }?.name,
             types = types,
         )
     }
+
+    /**
+     * Move rows read off the (scrolled) detail screen.
+     *
+     * Each row is prefixed by the move's type icon, which OCRs as a stray leading glyph
+     * ("O Poison Jab", "OSludge Bomb"), so that's stripped before lookup. Fast vs charged
+     * comes from [MoveTable] rather than row order, so a layout change can't silently swap
+     * them.
+     */
+    private fun moves(lines: List<OcrLine>): List<MoveTable.Move> =
+        lines.mapNotNull { line ->
+            val t = line.text.trim()
+            // Strip the icon glyph whether or not it's followed by a space.
+            val name = MOVE_ICON_RE.replace(t, "").trim()
+            if (name.length < 3) null else MoveTable.byName(name)
+        }
 
     /** Every mega-energy label on the screen, each paired with the number above it. */
     private fun megaEnergy(lines: List<OcrLine>): List<MegaEnergyRead> =

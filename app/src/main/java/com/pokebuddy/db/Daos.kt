@@ -64,6 +64,15 @@ interface OwnedPokemonDao {
             "ivPercent = :percent, ivCandidates = :candidates WHERE id = :id"
     )
     fun updateIv(id: Long, atk: Int?, def: Int?, sta: Int?, percent: Int?, candidates: Int)
+
+    /** Records the moveset. Only called with non-null values, so a screen scrolled too far
+     *  to show the move rows never erases a moveset we already read. */
+    @Query("UPDATE owned_pokemon SET fastMove = :fast, chargedMove = :charged WHERE id = :id")
+    fun updateMoves(id: Long, fast: String?, charged: String?)
+
+    /** Everything we can score as a counter: species plus its actual moveset. */
+    @Query("SELECT * FROM owned_pokemon")
+    fun allForCounters(): List<OwnedPokemon>
 }
 
 @Dao

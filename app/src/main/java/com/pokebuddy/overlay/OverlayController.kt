@@ -1,5 +1,6 @@
 package com.pokebuddy.overlay
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -10,36 +11,81 @@ import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.abs
 
 /**
- * A minimal floating results panel drawn over Pokémon GO via SYSTEM_ALERT_WINDOW.
+ * The floating results panel drawn over Pokémon GO via SYSTEM_ALERT_WINDOW.
  *
- * All WindowManager mutations are marshalled onto the main thread (the capture pipeline
- * runs on a worker thread). [hideForCapture] blanks the panel so MediaProjection doesn't
- * re-capture our own overlay — the self-OCR feedback loop flagged during the OCR work.
+ * Visibility rules, which are deliberately strict:
+ *
+ *  - It appears ONLY while Pokémon GO is in front. [onForegroundApp] hides it the moment
+ *    anything else comes forward, and [show] refuses to draw if PoGO isn't in front, so it
+ *    never surfaces over another app even briefly.
+ *  - A panel describes ONE scanned screen, so it auto-dismisses after [AUTO_DISMISS_MS]
+ *    rather than lingering over a screen it no longer describes. PoGO is a Unity app whose
+ *    internal navigation fires no accessibility events, so a timeout is the only way to
+ *    catch "user moved on inside the game" without continuously re-capturing the screen.
+ *
+ * All WindowManager mutations are marshalled onto the main thread (the capture pipeline runs
+ * on a worker thread). [hideForCapture] blanks the panel so MediaProjection doesn't
+ * re-capture our own overlay.
  */
 class OverlayController(private val context: Context) {
 
+    companion object {
+        private const val TAG = "PokeBuddyOverlay"
+        /** A panel outlives its screen quickly; long enough to read, short enough not to lie. */
+        private const val AUTO_DISMISS_MS = 12_000L
+        /** Movement beyond this is a drag, not a tap — keeps the close button clickable. */
+        private const val DRAG_SLOP_PX = 12
+    }
+
     private val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val main = Handler(Looper.getMainLooper())
-    private var view: TextView? = null
 
+    private var root: LinearLayout? = null
+    private var label: TextView? = null
+    private var params: WindowManager.LayoutParams? = null
+
+    /** Set false by the user tapping ✕; no panel is drawn again until the next scan. */
+    @Volatile private var dismissed = false
+    @Volatile private var pogoInFront = true
+
+    private val autoDismiss = Runnable { hide() }
+
+    @SuppressLint("ClickableViewAccessibility")
     private fun ensureAdded() {
-        if (view != null) return
+        if (root != null) return
         if (!Settings.canDrawOverlays(context)) {
-            Log.w("PokeBuddyOverlay", "SYSTEM_ALERT_WINDOW not granted — panel suppressed")
+            Log.w(TAG, "SYSTEM_ALERT_WINDOW not granted — panel suppressed")
             return
         }
-        val tv = TextView(context).apply {
-            setBackgroundColor(0xCC101418.toInt())
+
+        val body = TextView(context).apply {
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-            setPadding(28, 24, 28, 24)
             text = "PokeBuddy ready"
         }
+        val close = TextView(context).apply {
+            text = "✕"
+            setTextColor(0xFFBBBBBB.toInt())
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            setPadding(32, 0, 8, 0)
+            setOnClickListener { dismissed = true; hide() }
+        }
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(0xCC101418.toInt())
+            setPadding(28, 24, 20, 24)
+            addView(body, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(close)
+        }
+
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
@@ -48,6 +94,8 @@ class OverlayController(private val context: Context) {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             type,
+            // NOT_FOCUSABLE keeps keyboard/back with the game underneath; the panel still
+            // receives its own touches for dragging and the close button.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
@@ -56,21 +104,82 @@ class OverlayController(private val context: Context) {
             x = 28
             y = 220
         }
-        runCatching { wm.addView(tv, lp) }
-            .onSuccess { view = tv }
-            .onFailure { Log.w("PokeBuddyOverlay", "addView failed", it) }
+
+        container.setOnTouchListener(dragListener(lp))
+
+        runCatching { wm.addView(container, lp) }
+            .onSuccess { root = container; label = body; params = lp }
+            .onFailure { Log.w(TAG, "addView failed", it) }
     }
 
+    /** Drag-to-move. Returns false for small movements so the ✕ still registers as a click. */
+    private fun dragListener(lp: WindowManager.LayoutParams) = object : View.OnTouchListener {
+        private var startX = 0
+        private var startY = 0
+        private var touchX = 0f
+        private var touchY = 0f
+        private var dragging = false
+
+        override fun onTouch(v: View, e: MotionEvent): Boolean {
+            when (e.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = lp.x; startY = lp.y
+                    touchX = e.rawX; touchY = e.rawY
+                    dragging = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (e.rawX - touchX).toInt()
+                    val dy = (e.rawY - touchY).toInt()
+                    if (!dragging && (abs(dx) > DRAG_SLOP_PX || abs(dy) > DRAG_SLOP_PX)) dragging = true
+                    if (dragging) {
+                        lp.x = startX + dx
+                        lp.y = startY + dy
+                        runCatching { wm.updateViewLayout(v, lp) }
+                    }
+                }
+                MotionEvent.ACTION_UP -> return dragging   // consume only if we dragged
+            }
+            return false
+        }
+    }
+
+    /** Shows a panel for the screen just scanned. No-op if PoGO isn't in front. */
     fun show(text: String) = main.post {
+        dismissed = false
+        if (!pogoInFront) {
+            Log.i(TAG, "Suppressed: Pokémon GO is not in the foreground")
+            return@post
+        }
         ensureAdded()
-        view?.apply { this.text = text; visibility = View.VISIBLE }
+        label?.text = text
+        root?.visibility = View.VISIBLE
+        main.removeCallbacks(autoDismiss)
+        main.postDelayed(autoDismiss, AUTO_DISMISS_MS)
     }
 
     /** Blank the panel so it isn't part of the next captured frame. */
-    fun hideForCapture() = main.post { view?.visibility = View.INVISIBLE }
+    fun hideForCapture() = main.post { root?.visibility = View.INVISIBLE }
+
+    /** Hide without tearing down the window. */
+    fun hide(): Unit = run {
+        main.post {
+            main.removeCallbacks(autoDismiss)
+            root?.visibility = View.INVISIBLE
+        }
+    }
+
+    /**
+     * Called when the foreground app changes. Anything other than Pokémon GO hides the
+     * panel immediately — PokeBuddy must leave no trace over other apps.
+     */
+    fun onForegroundApp(isPogo: Boolean) {
+        pogoInFront = isPogo
+        if (!isPogo) hide()
+    }
 
     fun destroy() = main.post {
-        view?.let { runCatching { wm.removeView(it) } }
-        view = null
+        main.removeCallbacks(autoDismiss)
+        root?.let { runCatching { wm.removeView(it) } }
+        root = null; label = null; params = null
     }
 }

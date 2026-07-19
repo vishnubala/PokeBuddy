@@ -139,6 +139,8 @@ class ScreenCaptureService : Service() {
             MoveTable.load(assets.open("moves.csv").bufferedReader().use { it.readText() })
             Log.i(TAG, "Loaded ${SpeciesTable.size} species, ${MoveTable.size} moves")
         }.onFailure { Log.e(TAG, "Failed to load game data assets", it) }
+        // Keep the panel off every app but Pokémon GO.
+        GestureService.onForegroundChanged = { isPogo -> overlay.onForegroundApp(isPogo) }
         bgThread = HandlerThread("capture").apply { start() }
         bgHandler = Handler(bgThread.looper)
         // RECEIVER_EXPORTED so `adb shell am broadcast` (a different uid) can reach it.
@@ -490,10 +492,27 @@ class ScreenCaptureService : Service() {
         // Independent of whether the Pokémon itself is indexable — the resource panel is
         // readable even on frames where CP is occluded.
         runCatching { persistResources(frames) }.onFailure { Log.e(TAG, "resources failed", it) }
+        val details = frames.map { DetailParser.parse(it) }
+        val fastMove = mode(details.mapNotNull { it.fastMove })
+        val chargedMove = mode(details.mapNotNull { it.chargedMove })
         // Bars with no readable detail in this frame: the appraisal card is covering a
         // Pokémon we already indexed, so narrow that row instead of adding another.
         if (s?.name == null || s.cp == null) {
             if (bars != null) refineFromAppraisal(bars)
+            // Scrolling down to reveal the move rows scrolls the name and CP off the top,
+            // so identity and moveset are never on screen together. Attach the moves to the
+            // Pokémon we most recently identified — the same trick the appraisal path uses.
+            if (fastMove != null || chargedMove != null) {
+                lastDetailRowId?.let { rowId ->
+                    val prior = db.ownedDao().allForCounters().firstOrNull { it.id == rowId }
+                    db.ownedDao().updateMoves(
+                        rowId,
+                        fastMove ?: prior?.fastMove,
+                        chargedMove ?: prior?.chargedMove,
+                    )
+                    Log.i(TAG, "moves for #$rowId: $fastMove / $chargedMove")
+                }
+            }
             return
         }
         val decode = decodeFor(s, bars) ?: s.decode
@@ -514,6 +533,7 @@ class ScreenCaptureService : Service() {
                     species = s.name, cp = s.cp, hpMax = s.hpMax,
                     ivAtk = exact?.attack, ivDef = exact?.defense, ivSta = exact?.stamina,
                     ivPercent = percent, ivCandidates = candidates,
+                    fastMove = fastMove, chargedMove = chargedMove,
                 )
             )
             action = "indexed"
@@ -529,7 +549,17 @@ class ScreenCaptureService : Service() {
         }
         lastDetail = s
         lastDetailRowId = id
-        Log.i(TAG, "$action #$id ${s.name} CP${s.cp} iv=${exact?.let { fmt(it) } ?: "?"}; " +
+        // Moves come from a scrolled screen, so most captures won't have them. Write only
+        // what we actually read — never blank a moveset recorded by an earlier scan.
+        if (fastMove != null || chargedMove != null) {
+            dao.updateMoves(
+                id,
+                fastMove ?: existing?.fastMove,
+                chargedMove ?: existing?.chargedMove,
+            )
+        }
+        Log.i(TAG, "$action #$id ${s.name} CP${s.cp} iv=${exact?.let { fmt(it) } ?: "?"}" +
+            (fastMove?.let { " moves=$it/${chargedMove ?: "?"}" } ?: "") + "; " +
             "index total=${dao.count()}")
     }
 
@@ -661,6 +691,7 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onDestroy() {
+        GestureService.onForegroundChanged = null
         runCatching { unregisterReceiver(captureReceiver) }
         teardown()
         ocr.close()

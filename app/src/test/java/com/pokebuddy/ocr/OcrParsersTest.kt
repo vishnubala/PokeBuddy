@@ -3,6 +3,8 @@ package com.pokebuddy.ocr
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import com.pokebuddy.iv.MoveTable
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -104,6 +106,40 @@ class OcrParsersTest {
         assertTrue(DetailParser.parse(load("detail_sample.json")).megaEnergy.isEmpty())
     }
 
+    // ---------- Moveset (real scrolled Alolan Grimer capture, 2026-07-19) ----------
+
+    @Test fun scrolled_detail_reads_both_moves() {
+        MoveTable.load(java.io.File("src/main/assets/moves.csv").readText())
+        val info = DetailParser.parse(load("detail_scrolled_moves.json"))
+        // The type icon OCRs as a leading glyph, attached ("OSludge Bomb") or not.
+        assertEquals("Poison Jab", info.fastMove)
+        assertEquals("Sludge Bomb", info.chargedMove)
+    }
+
+    /** Fast vs charged comes from the move table, not row order, so a layout change
+     *  can't quietly swap them. */
+    @Test fun moves_are_classified_by_the_table_not_position() {
+        MoveTable.load(java.io.File("src/main/assets/moves.csv").readText())
+        assertTrue(MoveTable.byName("Poison Jab")!!.isFast)
+        assertFalse(MoveTable.byName("Sludge Bomb")!!.isFast)
+    }
+
+    /** A second, independent capture — moves are read without the icon glyph prefix too. */
+    @Test fun moves_are_read_from_an_unprefixed_capture() {
+        MoveTable.load(java.io.File("src/main/assets/moves.csv").readText())
+        val info = DetailParser.parse(load("detail_sample.json"))
+        assertEquals("Wing Attack", info.fastMove)
+        assertEquals("Fire Blast", info.chargedMove)
+    }
+
+    /** A screen with no move rows reports none rather than inventing them. */
+    @Test fun screen_without_moves_reports_none() {
+        MoveTable.load(java.io.File("src/main/assets/moves.csv").readText())
+        val info = DetailParser.parse(load("grid_sample.json"))
+        assertNull(info.fastMove)
+        assertNull(info.chargedMove)
+    }
+
     @Test fun detail_flags_occluded_cp_as_not_confident() {
         // This frame had the sprite over the last CP digit -> OCR read "CP243-".
         val info = DetailParser.parse(load("detail_sample.json"))
@@ -111,3 +147,4 @@ class OcrParsersTest {
         assertFalse(info.cpConfident)       // ...but flagged low-confidence, never as truth
     }
 }
+
