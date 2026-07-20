@@ -125,7 +125,11 @@ matching fell back to the mutable CP/HP path for exactly those Pokémon. Two fix
   a row written with a weight but a missing height could never repair itself. Confirmed live:
   the lucky Exeggcute had `weight=3.03kg, height=NULL`, and now reads `0.46m`.
 
-Still worth doing: an actual power-up on the lucky Exeggcute to prove the row survives one.
+**Proven live, 2026-07-20.** Powered up the lucky Exeggcute (id 18) in PoGO — CP 359→375,
+HP 74→76 — then rescanned. The row **updated in place**: `updated #18 Exeggcute CP375`, index
+total unchanged at 19, Exeggcute rows still 2, weight/height and the lucky flag intact. This
+is the case the whole identity rework existed to fix (a power-up used to spawn a duplicate),
+now confirmed on hardware. Schema is stable enough to build the box scan on.
 
 ### Variants the type row cannot separate
 
