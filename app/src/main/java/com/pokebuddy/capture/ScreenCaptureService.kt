@@ -36,14 +36,18 @@ import com.pokebuddy.iv.CpResolver
 import com.pokebuddy.iv.DecodeResult
 import com.pokebuddy.iv.Iv
 import com.pokebuddy.iv.IvDecoder
+import com.pokebuddy.iv.FormResolver
 import com.pokebuddy.iv.MoveTable
 import com.pokebuddy.iv.SpeciesTable
 import com.pokebuddy.ocr.AppraisalReader
 import com.pokebuddy.ocr.DetailParser
 import com.pokebuddy.ocr.EncounterParser
 import com.pokebuddy.ocr.GridParser
+import com.pokebuddy.ocr.MegaLevelParser
 import com.pokebuddy.ocr.OcrEngine
 import com.pokebuddy.ocr.OcrResult
+import com.pokebuddy.settings.Settings
+import com.pokebuddy.settings.SettingsSpec
 import com.pokebuddy.ocr.asPixelSource
 import com.pokebuddy.overlay.OverlayController
 import java.io.File
@@ -122,6 +126,9 @@ class ScreenCaptureService : Service() {
     private val ocr = OcrEngine()
     private val overlay by lazy { OverlayController(this) }
     private val db by lazy { PokeDatabase.get(this) }
+    // Read per use rather than cached, so a change in the settings screen takes effect on
+    // the next scan instead of after a service restart.
+    private val settings by lazy { Settings.get(this) }
 
     private val captureReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -385,7 +392,8 @@ class ScreenCaptureService : Service() {
         val barReads = ArrayList<Triple<Int, Int, Int>>()
         var savedPath: String? = null
         var verdictSummary = ""
-        repeat(BURST_FRAMES) { i ->
+        val burst = settings.get(SettingsSpec.CAPTURE_BURST_FRAMES)
+        repeat(burst) { i ->
             val frame = grabBitmap(reader) ?: return@repeat
             if (i == 0) {
                 verdictSummary = FrameAnalysis.analyze(frame).summary()
@@ -402,7 +410,7 @@ class ScreenCaptureService : Service() {
                 File(it.removeSuffix(".png") + ".ocr.json").writeText(res.toJson(File(it).name))
             }
             frame.recycle()
-            if (i < BURST_FRAMES - 1) Thread.sleep(BURST_GAP_MS)
+            if (i < burst - 1) Thread.sleep(BURST_GAP_MS)
         }
         if (frames.isEmpty()) {
             broadcast("No frame available yet — try CAPTURE NOW again.", null)
@@ -446,6 +454,10 @@ class ScreenCaptureService : Service() {
     private data class DetailScan(
         val name: String?, val cp: Int?, val hpCur: Int?, val hpMax: Int?,
         val base: BaseStats?, val decode: DecodeResult?,
+        /** Forms still in play. Size > 1 with a non-null [base] means the IV is exact but
+         *  the label is a tie (Kyurem Black/White decode identically). */
+        val forms: List<SpeciesTable.Species> = emptyList(),
+        val formNameCertain: Boolean = true,
     )
 
     /** Aggregates a burst of detail-screen frames: mode-vote name/HP, resolve CP across
@@ -462,14 +474,34 @@ class ScreenCaptureService : Service() {
         // wrong IV. Null here means the forms were indistinguishable, which the panel
         // reports rather than papering over.
         val types = mode(details.map { it.types }.filter { it.isNotEmpty() }).orEmpty()
-        val resolved = name?.let { SpeciesTable.resolve(it, types) }
-        val base = resolved?.stats
-        val cp = CpResolver.resolve(details.mapNotNull { it.cp }, base, hpMax)
-        val decode = if (base != null && cp != null && hpMax != null)
-            IvDecoder.decode(base, cp, hpMax) else null
+
+        // Chicken-and-egg: feasibility needs the CP, and resolving the CP is sharper with
+        // the base stats. So take the type-only answer first purely to help read the CP,
+        // then let feasibility have the final say on the form.
+        val provisional = name?.let { SpeciesTable.resolve(it, types) }
+        val cp = CpResolver.resolve(details.mapNotNull { it.cp }, provisional?.stats, hpMax)
+        val form = name?.let { FormResolver.resolve(it, types, cp, hpMax) }
+        val base = form?.species?.stats
+        // If feasibility settled a form the type row couldn't, re-read the CP with the
+        // stats now known — the first pass had no base to filter misreads against.
+        val finalCp = if (provisional == null && base != null)
+            CpResolver.resolve(details.mapNotNull { it.cp }, base, hpMax) else cp
+        val decode = if (base != null && finalCp != null && hpMax != null)
+            IvDecoder.decode(base, finalCp, hpMax) else null
         // Store the RESOLVED name ("Raichu (Alolan)"), so a form is indexed and ranked as
-        // its own species rather than pooled with the base form.
-        return DetailScan(resolved?.name ?: name, cp, hpCur, hpMax, base, decode)
+        // its own species rather than pooled with the base form. When the label is a tie
+        // the stats agree, so any candidate indexes the same numbers — keep the bare name
+        // rather than inventing a precision we don't have.
+        val label = when {
+            form == null -> name
+            form.nameIsCertain -> form.species?.name ?: name
+            else -> name
+        }
+        return DetailScan(
+            label, finalCp, hpCur, hpMax, base, decode,
+            forms = form?.candidates.orEmpty(),
+            formNameCertain = form?.nameIsCertain ?: true,
+        )
     }
 
     /** Mode-votes each bar across the burst. The bars don't animate, so agreement here is
@@ -513,6 +545,7 @@ class ScreenCaptureService : Service() {
 
     /** "· 3rd of 5 Pikachu" — rank by IV% within the species, blank when unknown. */
     private fun rankLine(species: String?, percent: Int?): String {
+        if (!settings.get(SettingsSpec.SHOW_RANK)) return ""
         if (species == null || percent == null) return ""
         val dao = db.ownedDao()
         val total = dao.countOfSpeciesWithIv(species)
@@ -537,8 +570,8 @@ class ScreenCaptureService : Service() {
         val head = "★ ${detail?.name ?: "?"} — appraisal\nbars $a/$d/$s"
         val r = detail?.let { decodeFor(it, bars) }
             ?: return "$head\nScan the detail screen first (need CP + HP)"
-        return "$head\nCP ${detail.cp}   HP ${detail.hpMax}\n${ivSummary(r)}" +
-            rankLine(detail.name, r.exactPercent)
+        // CP/HP omitted — they're on screen behind the appraisal card. See buildResultPanel.
+        return "$head\n${ivSummary(r)}" + rankLine(detail.name, r.exactPercent)
     }
 
     /**
@@ -552,7 +585,9 @@ class ScreenCaptureService : Service() {
         } ?: return null
         val dao = db.ownedDao()
         val owned = dao.countOfSpecies(e.species)
-        if (owned == 0) return "★ ${e.species} (wild)\nCP ${e.cp}\nNEW — none owned yet"
+        // The wild CP is on screen already, so it isn't repeated. What the game can't tell
+        // you is how it compares with what's already in the box — that's the whole signal.
+        if (owned == 0) return "★ ${e.species} (wild)\nNEW — none owned yet"
 
         val bestCp = dao.bestCp(e.species)
         val bestIv = dao.bestIvPercent(e.species)
@@ -562,7 +597,7 @@ class ScreenCaptureService : Service() {
             else -> "\n· below your best CP ($bestCp)"
         }
         val best = "Best owned: CP ${bestCp ?: "?"}" + (bestIv?.let { " · IV $it%" } ?: "")
-        return "★ ${e.species} (wild)\nCP ${e.cp}\n$best  ($owned owned)$verdict\nWild IV unknown until caught"
+        return "★ ${e.species} (wild)\n$best  ($owned owned)$verdict\nWild IV unknown until caught"
     }
 
     private fun buildResultPanel(frames: List<OcrResult>, bars: Triple<Int, Int, Int>?): String {
@@ -579,7 +614,7 @@ class ScreenCaptureService : Service() {
             // Distinguish "we don't have this species" from "we can't tell which form" —
             // the second is a read we could still complete, so saying it plainly tells you
             // the type row was missed rather than implying the Pokédex is incomplete.
-            val forms = s.name?.let { SpeciesTable.formsFor(it) }.orEmpty()
+            val forms = s.forms.ifEmpty { s.name?.let { SpeciesTable.formsFor(it) }.orEmpty() }
             val ivText = when {
                 s.base == null && forms.size > 1 ->
                     "Which form? ${forms.joinToString(" / ") { it.name }}\n(type row unreadable)"
@@ -597,7 +632,16 @@ class ScreenCaptureService : Service() {
                 storedPercent != null -> rankLine(s.name, storedPercent)
                 else -> rankLine(s.name, s.decode?.exactPercent)
             }
-            return "★ ${s.name ?: "?"}\nCP ${s.cp ?: "?"}   HP ${s.hpCur ?: "?"}/${s.hpMax ?: "?"}\n$ivText$rank"
+            // Several forms decode identically (Kyurem Black/White, Pikachu costumes), so
+            // the IV above is exact but the NAME isn't. Say which it's between rather than
+            // printing one of them as though we knew.
+            val tie = if (!s.formNameCertain && s.forms.size > 1)
+                "\n· ${s.forms.joinToString(" or ") { it.name }} — same stats, IV unaffected"
+            else ""
+            // CP and HP are deliberately NOT echoed: they are already on the screen the
+            // user is looking at, and the panel is small. It earns its space by showing
+            // only what the game doesn't — the IV and where this one ranks.
+            return "★ ${s.name ?: "?"}\n$ivText$rank$tie"
         }
         encounterPanel(frames)?.let { return it }
         // A tile only counts if its name is a real species. The map pairs the trainer name
@@ -619,6 +663,7 @@ class ScreenCaptureService : Service() {
         // Independent of whether the Pokémon itself is indexable — the resource panel is
         // readable even on frames where CP is occluded.
         runCatching { persistResources(frames) }.onFailure { Log.e(TAG, "resources failed", it) }
+        runCatching { persistMegaLevel(frames) }.onFailure { Log.e(TAG, "mega level failed", it) }
         val details = frames.map { DetailParser.parse(it) }
         val fastMove = mode(details.mapNotNull { it.fastMove })
         val chargedMove = mode(details.mapNotNull { it.chargedMove })
@@ -659,6 +704,12 @@ class ScreenCaptureService : Service() {
         val height = mode(details.mapNotNull { it.height })
         val caughtLocation = mode(details.mapNotNull { it.caughtLocation })
         val caughtDate = mode(details.mapNotNull { it.caughtDate })
+        // Flags are a property of the screen, so OR across the merged frames: the label can
+        // be occluded on one frame and legible on the next, and a single sighting of
+        // "LUCKY POKÉMON" is proof, while its absence on one frame proves nothing.
+        val lucky = details.any { it.lucky }
+        val dynamax = details.any { it.dynamax }
+        val sizeBadge = mode(details.mapNotNull { it.sizeBadge })
         val existing =
             (if (weight != null && height != null)
                 dao.findByIdentity(s.name, weight, height, caughtDate, caughtLocation) else null)
@@ -674,6 +725,7 @@ class ScreenCaptureService : Service() {
                     fastMove = fastMove, chargedMove = chargedMove,
                     weight = weight, height = height,
                     caughtLocation = caughtLocation, caughtDate = caughtDate,
+                    lucky = lucky, dynamax = dynamax, sizeBadge = sizeBadge,
                 )
             )
             action = "indexed"
@@ -681,8 +733,26 @@ class ScreenCaptureService : Service() {
             id = existing.id
             // Backfill identity onto rows that predate these columns, and keep CP/HP current
             // — a power-up is the same Pokémon with new numbers, not a new one.
-            if (weight != null && existing.weight == null) {
-                dao.updateIdentity(id, weight, height, caughtLocation, caughtDate)
+            //
+            // Gated per FIELD rather than on weight alone. Rows written before size badges
+            // were understood have a weight but a NULL height (the badge replaced the
+            // "HEIGHT" label), and keying the backfill off weight meant those rows saw
+            // their weight already set and never repaired the missing height.
+            //
+            // Each field only ever fills a gap: a value already stored is never overwritten
+            // by a later read, so a partially-legible frame can't corrupt good identity.
+            val fills = (weight != null && existing.weight == null) ||
+                (height != null && existing.height == null) ||
+                (caughtLocation != null && existing.caughtLocation == null) ||
+                (caughtDate != null && existing.caughtDate == null)
+            if (fills) {
+                dao.updateIdentity(
+                    id,
+                    existing.weight ?: weight,
+                    existing.height ?: height,
+                    existing.caughtLocation ?: caughtLocation,
+                    existing.caughtDate ?: caughtDate,
+                )
             }
             if (existing.cp != s.cp || existing.hpMax != s.hpMax) {
                 dao.updateStats(id, s.cp, s.hpMax)
@@ -692,6 +762,17 @@ class ScreenCaptureService : Service() {
             if (exact != null || percent != null || existing.ivAtk == null) {
                 dao.updateIv(id, exact?.attack, exact?.defense, exact?.stamina,
                     percent, candidates)
+            }
+            // Only write flags a frame actually asserted. A detail screen scrolled past the
+            // name shows no "LUCKY POKÉMON" line, and writing false there would clear a
+            // flag an earlier, fuller read had correctly set.
+            if (lucky || dynamax || sizeBadge != null) {
+                dao.updateFlags(
+                    id,
+                    lucky || existing.lucky,
+                    dynamax || existing.dynamax,
+                    sizeBadge ?: existing.sizeBadge,
+                )
             }
             action = "updated"
         }
@@ -727,6 +808,26 @@ class ScreenCaptureService : Service() {
      * candy is shared across an evolution family, and mega energy belongs to the mega
      * (a Pikachu's screen reports Raichu energy).
      */
+    /**
+     * Records a mega level when the captured screen is the mega panel.
+     *
+     * Declines to store anything when the species has several megas and the selected tab
+     * can't be determined — writing the level against a guessed variant would report, say,
+     * a Mega Raichu X level for Y. See [MegaLevelParser.MegaLevelInfo.variant].
+     */
+    private fun persistMegaLevel(frames: List<OcrResult>) {
+        val info = frames.firstNotNullOfOrNull { MegaLevelParser.parse(it) } ?: return
+        val variant = info.variant
+        if (variant == null) {
+            Log.i(TAG, "mega level: ${info.species} ${info.level} — not stored, " +
+                "${info.variantTabs.size} variants (${info.variantTabs.joinToString("/")}) " +
+                "and the selected tab isn't readable from text")
+            return
+        }
+        db.megaEnergyDao().upsertLevel(info.species, variant, info.level)
+        Log.i(TAG, "mega level: ${info.species} $variant = ${info.level}")
+    }
+
     private fun persistResources(frames: List<OcrResult>) {
         val infos = frames.map { DetailParser.parse(it) }
         val candySpecies = mode(infos.mapNotNull { it.candySpecies })
@@ -748,7 +849,7 @@ class ScreenCaptureService : Service() {
         }
         // One row per variant seen; a species with no mega simply writes nothing.
         val megas = mode(infos.map { it.megaEnergy }.filter { it.isNotEmpty() }) ?: return
-        megas.forEach { db.megaEnergyDao().upsert(MegaEnergy(it.species, it.variant, it.amount)) }
+        megas.forEach { db.megaEnergyDao().upsertAmount(it.species, it.variant, it.amount) }
         Log.i(TAG, "resources: $family candy=$candy; mega=" +
             megas.joinToString { "${it.species}${it.variant} ${it.amount}" })
     }

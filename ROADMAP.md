@@ -22,43 +22,110 @@ to be rediscovered.
 | Movesets | Fast + charged (incl. 2nd charged), attached across scroll positions |
 | Type chart + counters | `bestInGame` / `fromInventory`, verified against PokeAPI |
 | Overlay | Draggable, closable, rescan button, app-scoped, auto-following |
+| Tracked flags | `lucky` / `dynamax` / size badge, live-verified into the DB |
+| Mega level | Panel parsed; stored per species+variant, declined when ambiguous |
+| Form disambiguation | Type row **plus feasibility** — Armored Mewtwo, Origin formes, Kyurem |
+| Settings | Spec-driven screen + backup codec; overlay and scan options live |
 
 ---
 
 ## Next up
 
-1. **Box scan — semi-manual**: user scrolls, app OCRs each page, dedups, upserts.
-2. **Box scan — auto-navigate**: accessibility drives the scrolling.
-3. **Filter rescan** via PoGO's own search field (approved: app may type into it).
-   Search supports `shiny`, `mega`, names, types — far more robust than scrolling the whole
-   box and filtering ourselves.
+1. **Variant feasibility fix** (see "Variants the type row cannot separate").
+2. **Settings page** (see "Settings, backup and export").
+3. **Power-up duplicate test** on the lucky Exeggcute — authorised to spend dust/candy.
+   Confirms identity survives a real power-up rather than only in theory.
 4. **Counters in the overlay**: data layer is done; needs UI and a decision on presentation.
-5. **`megaLevelUnlocked`**: not on the detail screen. Sources to sample — Raichu
-   (multi-mega), Steelix (single), Beedrill (on cooldown), Absol (insufficient energy).
-6. **Shiny**: no DB column yet; need a capture to see how shiny is marked visually.
-   Search `shiny` lists them.
+5. **Shiny detection**, which belongs to the grid path — see below.
+6. **Box scan** — semi-manual, then auto-navigate. LAST, after the schema settles.
+   **Filter rescan** via PoGO's own search field is approved (the app may type into it) and
+   is far more robust than scrolling the whole box: `shiny`, `lucky`, `mega`, `dynamax` all
+   work as queries.
 
-### Known hole: identity is not stable
+### How PoGO marks each flag — measured, 2026-07-19
 
-Rows are matched on **species + CP + maxHP** (`OwnedPokemonDao.findMatch`). That holds for a
-rescan or a move purchase, but it is not an identity — it's a fingerprint of mutable values:
+Captured on device across shiny / lucky / mega / dynamax screens. The headline is that
+**almost none of this needed pixel work**: only shiny does, and not where expected.
 
-| Action | Result today | Correct? |
+| Flag | Detail screen | Box grid |
 |---|---|---|
-| Rescan the same Pokémon | updates the row | yes |
-| Buy a 2nd charged move | updates the row (CP/HP unchanged) | yes |
-| **Power up** | CP and HP both change → **new duplicate row** | no |
-| **Evolve** | species, CP and HP change → **new duplicate row** | no |
-| Two genuinely identical Pokémon | collapse into one row | no (undercount) |
+| **lucky** | text `LUCKY POKÉMON` under the name | golden bubble tile background |
+| **dynamax** | text `Dynamax` in its own row | pink crossed-X glyph on the sprite |
+| **mega (active)** | name reads `Mega Raichu X`; `07:57 left` beside the DNA icon | name carries the prefix |
+| **mega (cooling down)** | `7 DAYS` beside the DNA icon | — |
+| **size badge** | `LIGHTEST` / `HEAVIEST` / `TALLEST` **replacing** the WEIGHT/HEIGHT label | — |
+| **shiny** | **nothing at all** | teal sparkles top-left of the sprite |
 
-PoGO exposes no id on screen, so a true key isn't available. The best proxy is
-**weight + height**: both are per-individual constants fixed at catch, unchanged by powering
-up, and already parsed into `DetailInfo`. Species + weight + height would survive power-ups
-and separate near-identical Pokémon. Catch date/location is a further tiebreaker, at the cost
-of storing personal data in the index.
+**Shiny IS on the detail screen** — sparkles scattered across the background (user-confirmed;
+an earlier note here claimed otherwise and was wrong). The mistake is worth keeping: a
+block-mean pixel diff between a shiny and non-shiny Pikachu showed almost nothing, because
+the sparkles are large, soft and low-contrast, and averaging over blocks erased them. **Don't
+conclude "no marker" from a mean-difference test.**
 
-Worth fixing BEFORE the first full box scan, since a scan followed by normal play would
-otherwise accumulate duplicates.
+It is nonetheless **not yet detectable reliably**, and `OwnedPokemon.shiny` stays nullable
+with nothing writing it. A measured sparkle profile: peak luminance ~116 against a ~20
+background, falling to background by ~20px — a soft local blob, not a resolvable 4-point
+star at this resolution. Three detector shapes were tried and all failed to separate shiny
+from plain:
+
+| Approach | Why it failed |
+|---|---|
+| Global bright-pixel count | Backgrounds differ hugely in brightness (Exeggcute's is bright, Pikachu's near-black) |
+| Axis-vs-diagonal star shape | At the real scale the arms aren't separable from the core |
+| Local blob vs dark ring | Ordinary backgrounds are full of bokeh and star specks — shiny Pikachu scored 68, plain Pikachu 64 |
+
+The blocker is that plain backgrounds already contain bright specks, so a single static frame
+can't separate them. **The promising angle is temporal**: shiny sparkles animate, while
+background bokeh is largely static, and `ScreenWatcher` already holds multiple frames. Per-
+pixel variance across frames in the background band is the next thing to try. Failing that,
+the **grid marker is unambiguous** (teal sparkles on the tile sprite, verified visually) and
+needs no calibration — which is another reason shiny detection belongs to the box scan.
+
+**The favourite star is not a rarity marker** (it is just the favourite toggle), and neither
+is the gold star-with-Pokéball at the left edge — that one is PokeBuddy's own overlay
+bleeding into its own capture. Both are tempting false positives in exactly the region a
+badge would occupy.
+
+### `megaLevelUnlocked` — done, with one honest gap
+
+Not on the detail screen (confirmed by scrolling a mega-evolved Raichu top to bottom). It
+lives on a separate panel reached by tapping the DNA icon, titled `<Species>'s Mega Level`,
+with a `Base Level` / `High Level` / `Max Level` banner — all text, so `MegaLevelParser`
+reads it without pixels.
+
+Two things fell out of the capture that shape the schema:
+
+- The panel is **species-scoped**, not per-individual ("Raichu's Mega Level"), and where a
+  species has several megas it shows one tab per variant. So the level is keyed by
+  **species + variant** — exactly the key `mega_energy` already had, which is why
+  `megaLevel` is a column there rather than on `owned_pokemon`.
+- **Which tab is selected is a fill colour**, and both tabs OCR as plain text. For a
+  multi-mega species the parser therefore reports both tabs and a **null variant**, and the
+  service declines to store rather than attach Raichu's level to the wrong mega. Resolving
+  it needs a colour check behind the tab label — the same anchor-then-sample technique as
+  `AppraisalReader`. Not built; one capture is too thin to calibrate against.
+
+Also unverified: the single-variant store path. Steelix is single-mega but has never been
+mega evolved, and **the level panel is only reachable once a species has been mega evolved
+at least once** — an un-evolved Steelix shows three grey pips and no panel. (Pip count also
+varies by species: Steelix 3, Raichu 4. The level is read from the banner text, not counted.)
+
+### Identity: fixed, with a bug the flag work uncovered
+
+Rows match on species + weight + height (+ catch date/location as tiebreakers) — see
+`OwnedPokemonDao.findByIdentity`. Weight and height are fixed at catch and survive powering
+up and evolving, unlike CP and maxHP.
+
+The size-badge finding above broke this silently. A badge **replaces** the `WEIGHT`/`HEIGHT`
+label, so a Pokémon with one parsed as having no weight or height at all — and identity
+matching fell back to the mutable CP/HP path for exactly those Pokémon. Two fixes landed:
+
+- `DetailParser` now accepts the badge labels as weight/height anchors.
+- Identity backfill is gated **per field**. It previously ran only when `weight` was null, so
+  a row written with a weight but a missing height could never repair itself. Confirmed live:
+  the lucky Exeggcute had `weight=3.03kg, height=NULL`, and now reads `0.46m`.
+
+Still worth doing: an actual power-up on the lucky Exeggcute to prove the row survives one.
 
 ### Variants the type row cannot separate
 
@@ -77,11 +144,34 @@ Costumes are therefore harmless for correctness; they only matter for labelling.
 Origin forms are not: picking the wrong one produces a confidently wrong IV. Today `resolve`
 returns null for these and the panel says "Which form?", which is honest but unhelpful.
 
-**Proposed fix — disambiguate by feasibility.** `IvDecoder` already rejects a species whose
-CP+HP admit no valid IV solution (the guard behind `CpResolver`). Run the candidate forms
-through it and keep the ones that are actually solvable: Mewtwo at 300 attack and Armored at
-182 will rarely both explain the same CP/HP. Where more than one survives, keep reporting the
-ambiguity rather than guessing.
+**Fixed — `FormResolver` disambiguates by feasibility.** Types narrow first, then any form
+whose base stats admit no valid IV for the observed CP+HP is dropped. Mewtwo (300 attack)
+and Armored Mewtwo (182) essentially never both explain the same numbers, so one survives.
+
+The useful subtlety is what happens when several forms survive **with identical base stats**.
+That isn't ambiguity worth refusing: the IV maths is the same whichever is right, so the IV
+is reported as exact and only the NAME is flagged as a tie ("Kyurem (Black) or (White) —
+same stats, IV unaffected"). Forms that survive with *different* stats still resolve to null,
+because picking one would produce a confidently wrong IV.
+
+There is an ordering wrinkle worth remembering: feasibility needs the CP, and reading the CP
+is sharper with the base stats. `aggregateDetail` therefore resolves by type first purely to
+help `CpResolver`, then lets feasibility settle the form, then re-reads the CP if the form
+was only just pinned down.
+
+### Fusion Pokémon
+
+Necrozma and Kyurem fuse, and they behave completely differently:
+
+| Fusion | Types | Separable? |
+|---|---|---|
+| Necrozma / Dusk Mane / Dawn Wings / Ultra | psychic / +steel / +ghost / +dragon | **Yes — type row alone.** All four typings differ |
+| Kyurem vs Black/White | all `dragon/ice` | **Yes — feasibility.** Base is 246 attack, fused are 310 |
+| Kyurem (Black) vs (White) | both `dragon/ice` | **No** — identical types AND identical stats (310/183/245) |
+
+So only the Black/White pair is genuinely undecidable, and it's the harmless kind: identical
+stats mean the IV is unaffected, exactly like the Pikachu costumes. Covered by tests in
+`FormResolverTest`.
 
 ### Sprite image matching — considered, not recommended first
 
@@ -100,34 +190,68 @@ UI element in a known region is far more robust than matching a rendered model, 
 same technique already proven on the appraisal bars. Reserve sprite matching for cases with
 no UI marker at all — Armored Mewtwo being the likely one.
 
-### Dynamax capability
+### Dynamax capability — resolved by reading the screen
 
-**Not in pvpoke's GameMaster** — zero entries carry any dynamax/gigantamax tag, so it cannot
-be derived from the current data source. Two options:
-
-1. Read it off the screen (PoGO shows Dynamax UI on capable Pokémon) — consistent with how
-   everything else here works, and needs no new data source.
-2. Add a second data source (PokeMiners' GAME_MASTER carries the flags) — more data to keep
-   in sync, and a species-level capability rather than a per-Pokémon fact.
-
-Option 1 preferred, and it folds into the same UI-marker work as shiny/lucky.
+It is **not in pvpoke's GameMaster** (zero entries carry a dynamax/gigantamax tag), so a
+second data source looked necessary. It wasn't: the detail screen simply says `Dynamax`, so
+it is read like everything else and needs no new dependency.
 
 Unused metadata already in the GameMaster that may be worth carrying later:
 `legendary`, `mythical`, `ultrabeast`, `regional`, `starter`, `untradeable`, `shadoweligible`.
 
-### Tracked flags (requested, not built)
+### Special background — deferred, and probably not a pixel check
 
-`shiny`, `lucky`, `special background` (and Armored/costume labelling) need DB columns and a
-detection method. Shiny and lucky are visual markers rather than text, so they likely need
-pixel checks like the appraisal bars, not OCR. Captures needed before designing this.
+Low priority (user's call). The detail-screen backdrop varies a lot between Pokémon —
+teal-with-leaves, navy-with-stars, purple bokeh — and with no labelled control pair there is
+no way to tell a genuine special background from ordinary type or event theming. Sampling
+the backdrop would produce confident nonsense.
+
+There is likely a better identifier than the backdrop itself, so revisit the approach rather
+than trying to calibrate this one. Not urgent, and nothing else depends on it.
+
+**The lead worth trying first**: PoGO's own search field, which is already the plan for
+filter rescan (see "Next up"). Search terms exist for the flags we care about — `shiny`,
+`lucky`, `mega` are confirmed working — so if a background term exists too, the game does
+the classification for us and we only read the result set. That turns an uncalibratable
+pixel problem into the same list-reading problem we already solve, and it is the same reason
+shiny detection is better done from the grid than from the detail backdrop. Check what
+search terms the game accepts before writing any pixel code for this.
 
 ## Settings, backup and export
 
-Requested; not built yet.
+**Settings page — built.** Generated at runtime from `SettingsSpec` rather than from a
+layout: a setting is one entry in that list and the screen, the persistence and the backup
+format all follow from it. A hand-written screen would have kept three copies of the same
+list in XML, in the read/write code and in the exporter, and they drift.
 
-- **Settings page** to configure the overlay — poll interval, auto-appraise on/off, panel
-  position/size, which fields to show, scan mode (semi-manual vs auto-navigate).
-- **Export settings** as a backup file, re-importable after a reinstall.
+Live settings: panel text size, panel auto-hide (0 = stay until dismissed), remember panel
+position, show IV rank, frames per scan, auto-appraise on scan. All verified persisting on
+device.
+
+**Export settings — built, NOT yet device-verified.** `SettingsCodec` round-trips to JSON
+with a schema version, refuses a version it doesn't recognise, clamps out-of-range values
+and defaults keys missing from older backups. Every key is tested round-tripping at a
+non-default value, which is the test that actually exercises the hand-rolled parser —
+round-tripping defaults proves nothing, since a key that silently falls back to its default
+passes by coincidence.
+
+Export/import go through the **Storage Access Framework**: the user picks the destination in
+the system picker, so the app needs no storage permission and the export stays explicitly
+user-initiated. Two wrinkles worth keeping:
+
+- The import picker filters on `*/*`, not `application/json`. Providers often report a
+  `.json` on external storage as `octet-stream`, and a backup that doesn't appear in the
+  picker is a backup you don't have.
+- Backup filenames are dated, so successive exports don't overwrite each other.
+
+⚠️ **The picker flow has not been exercised on the phone** — the device was unplugged and
+came back unauthorized before this could be tested. The codec is unit-tested; the SAF
+round trip, the toasts and the post-import `recreate()` are not. Test before trusting a
+backup taken with it.
+
+Known limitation: `OverlayController` reads settings when it builds the panel, so an
+imported panel text size applies to the next panel, not one already on screen.
+
 - **Export the DB** once the schema is settled, so the index survives reinstalling PokeBuddy
   or PoGO. Deliberately AFTER the schema stabilises — exporting a format still in flux
   produces backups that can't be restored.
@@ -189,3 +313,18 @@ that has to be thrown away.
   must name a real species.
 - **Fixtures contain personal data.** Real captures embed location, catch dates and trainer
   name. Scrub before committing; full-screen PNGs are gitignored under test resources.
+  A mega-raid catch also lists **the party you caught it with** ("WITH YOUR PARTY: …"),
+  which is other people's data — that capture is deliberately not a fixture.
+- **PokeBuddy's own overlay appears in PokeBuddy's own captures.** The gold star at the left
+  edge is ours, and it sits right where a rarity badge would. Don't read it as game UI, and
+  don't site a pixel check underneath it.
+- **`CAPTURE_NOW` grabs whatever is on screen at that instant.** Twice it caught a
+  transition rather than the intended screen and reported "No Pokémon screen detected" while
+  the right screen was plainly visible. Re-screenshot and re-issue rather than debugging the
+  parser.
+- **Scripted PoGO navigation stays unreliable.** A cold start does not resume the previous
+  screen, so a blind tap sequence lands somewhere else — one such run hit the AR button and
+  raised a camera-permission prompt. Screenshot between steps, or have the user navigate.
+- **Pull the DB with `adb exec-out`, never a shell redirect.** `adb shell "... > file"` and
+  Bash redirection both corrupt the binary; the copy opens as "file is not a database".
+  Take the `-wal` file too or recent writes are missing.

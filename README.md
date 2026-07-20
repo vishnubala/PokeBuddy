@@ -8,17 +8,14 @@ Full scope: see the project scope doc.
 
 ---
 
-## Current state: FLAG_SECURE de-risk spike
+## Current state
 
-Only one thing is built right now — a spike that answers the single question the
-whole architecture is gated on:
+The FLAG_SECURE question the architecture was gated on is answered: Pokémon GO does
+**not** set it, and MediaProjection returns readable frames. Capture, OCR, IV decode,
+appraisal reading, the Room index and the overlay are all built and verified on device.
 
-> Does MediaProjection return a **readable** frame of Pokémon GO, or a **black**
-> one (which would mean Pokémon GO sets `FLAG_SECURE` and the entire
-> screenshot+OCR approach is dead)?
-
-Everything else (OCR, IV decode, SQLite index, overlay) is intentionally **not
-built yet** — no point until this returns a go.
+See [ROADMAP.md](ROADMAP.md) for what's done, what's next, and the decisions and traps
+worth not rediscovering.
 
 ### Build environment (already installed on this machine)
 
@@ -31,7 +28,7 @@ A command-line build toolchain is set up and verified — `gradlew.bat
 - User env vars `JAVA_HOME`, `ANDROID_HOME`, and PATH are set (open a **new**
   terminal to pick them up).
 
-### To run the spike on your phone
+### To run it on your phone
 
 1. Enable **Developer Options → USB debugging** on the phone; plug in via USB and
    accept the "Allow USB debugging?" prompt. Confirm it's seen:
@@ -63,16 +60,16 @@ A command-line build toolchain is set up and verified — `gradlew.bat
 
 ---
 
-## Module map (what gets built after a green spike)
+## Module map
 
 | Package | Responsibility | Status |
 |---|---|---|
-| `capture` | MediaProjection foreground service, frame grab | ✅ spike done |
-| `ocr` | ML Kit on-device text recognition (bundled model, offline) | ⬜ next |
-| `iv` | Base-stat table + appraisal/CP/HP → exact-or-candidate IV | ⬜ |
-| `db` | Room/SQLite local index (one row per owned Pokémon) | ⬜ |
-| `overlay` | `SYSTEM_ALERT_WINDOW` draw-over on encounter/detail/trade | ⬜ |
-| `accessibility` | Foreground-app detection; auto-navigate taps (opt-in) | ⬜ |
+| `capture` | MediaProjection foreground service, frame grab, screen watcher | ✅ |
+| `ocr` | ML Kit on-device text recognition (bundled model, offline) | ✅ |
+| `iv` | Base-stat table + appraisal/CP/HP → exact-or-candidate IV | ✅ |
+| `db` | Room/SQLite local index (one row per owned Pokémon) | ✅ |
+| `overlay` | `SYSTEM_ALERT_WINDOW` draw-over on encounter/detail/trade | ✅ |
+| `automation` | Foreground-app detection; auto-appraise taps (opt-in) | ✅ |
 
 ## Config chosen (change freely)
 

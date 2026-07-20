@@ -16,6 +16,9 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+// Aliased: android.provider.Settings is already imported here for canDrawOverlays.
+import com.pokebuddy.settings.Settings as PokeSettings
+import com.pokebuddy.settings.SettingsSpec
 import kotlin.math.abs
 
 /**
@@ -40,6 +43,7 @@ class OverlayController(private val context: Context) {
     companion object {
         private const val TAG = "PokeBuddyOverlay"
         /** A panel outlives its screen quickly; long enough to read, short enough not to lie. */
+        /** Default only — the live value is [SettingsSpec.PANEL_DISMISS_SECONDS]. */
         private const val AUTO_DISMISS_MS = 12_000L
         /** Movement beyond this is a drag, not a tap — keeps the close button clickable. */
         private const val DRAG_SLOP_PX = 12
@@ -71,9 +75,13 @@ class OverlayController(private val context: Context) {
             return
         }
 
+        val prefs = PokeSettings.get(context)
         val body = TextView(context).apply {
             setTextColor(Color.WHITE)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTextSize(
+                TypedValue.COMPLEX_UNIT_SP,
+                prefs.get(SettingsSpec.OVERLAY_TEXT_SP).toFloat(),
+            )
             text = "PokeBuddy ready"
         }
         val rescan = TextView(context).apply {
@@ -114,8 +122,10 @@ class OverlayController(private val context: Context) {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 28
-            y = 220
+            // Restore where it was last dragged, unless the user asked for a fixed start.
+            val remember = prefs.get(SettingsSpec.REMEMBER_PANEL_POSITION)
+            x = if (remember) prefs.get(SettingsSpec.PANEL_X) else SettingsSpec.PANEL_X.default
+            y = if (remember) prefs.get(SettingsSpec.PANEL_Y) else SettingsSpec.PANEL_Y.default
         }
 
         container.setOnTouchListener(dragListener(lp))
@@ -150,7 +160,18 @@ class OverlayController(private val context: Context) {
                         runCatching { wm.updateViewLayout(v, lp) }
                     }
                 }
-                MotionEvent.ACTION_UP -> return dragging   // consume only if we dragged
+                MotionEvent.ACTION_UP -> {
+                    // Persist on release rather than on every MOVE — dragging fires
+                    // continuously, and committing each frame would hammer prefs.
+                    if (dragging) {
+                        val prefs = PokeSettings.get(context)
+                        if (prefs.get(SettingsSpec.REMEMBER_PANEL_POSITION)) {
+                            prefs.set(SettingsSpec.PANEL_X, lp.x)
+                            prefs.set(SettingsSpec.PANEL_Y, lp.y)
+                        }
+                    }
+                    return dragging   // consume only if we dragged
+                }
             }
             return false
         }
@@ -168,7 +189,9 @@ class OverlayController(private val context: Context) {
         root?.visibility = View.VISIBLE
         main.removeCallbacks(autoDismiss)
         // Only fall back to a timeout when nothing is watching the screen for us.
-        if (!screenWatched) main.postDelayed(autoDismiss, AUTO_DISMISS_MS)
+        // 0 means "stay until dismissed", so no timeout is posted at all.
+        val seconds = PokeSettings.get(context).get(SettingsSpec.PANEL_DISMISS_SECONDS)
+        if (!screenWatched && seconds > 0) main.postDelayed(autoDismiss, seconds * 1000L)
     }
 
     /** Blank the panel so it isn't part of the next captured frame. */
