@@ -101,6 +101,18 @@ interface OwnedPokemonDao {
     @Query("UPDATE owned_pokemon SET fastMove = :fast, chargedMove = :charged WHERE id = :id")
     fun updateMoves(id: Long, fast: String?, charged: String?)
 
+    /**
+     * Records the flags read off a detail screen.
+     *
+     * shiny is absent on purpose: the detail screen has no shiny marker, so this path has
+     * nothing to say about it and must not overwrite a value the grid scan established.
+     */
+    @Query(
+        "UPDATE owned_pokemon SET lucky = :lucky, dynamax = :dynamax, " +
+            "sizeBadge = :sizeBadge WHERE id = :id"
+    )
+    fun updateFlags(id: Long, lucky: Boolean, dynamax: Boolean, sizeBadge: String?)
+
     /** Everything we can score as a counter: species plus its actual moveset. */
     @Query("SELECT * FROM owned_pokemon")
     fun allForCounters(): List<OwnedPokemon>
@@ -117,8 +129,27 @@ interface FamilyResourceDao {
 
 @Dao
 interface MegaEnergyDao {
-    @Upsert
-    fun upsert(energy: MegaEnergy)
+    /**
+     * Upserts the ENERGY amount only, leaving megaLevel alone.
+     *
+     * A whole-row @Upsert would replace the row, and the detail screen that reports energy
+     * doesn't report the level — so every ordinary scan would wipe a level read earlier
+     * from the mega panel.
+     */
+    @Query(
+        "INSERT INTO mega_energy (species, variant, amount, megaLevel) " +
+            "VALUES (:species, :variant, :amount, NULL) " +
+            "ON CONFLICT(species, variant) DO UPDATE SET amount = :amount"
+    )
+    fun upsertAmount(species: String, variant: String, amount: Int)
+
+    /** Records the level from the mega panel without disturbing the energy count. */
+    @Query(
+        "INSERT INTO mega_energy (species, variant, amount, megaLevel) " +
+            "VALUES (:species, :variant, 0, :level) " +
+            "ON CONFLICT(species, variant) DO UPDATE SET megaLevel = :level"
+    )
+    fun upsertLevel(species: String, variant: String, level: String)
 
     /** Every variant we've actually seen for this species — one row each, ordered so an
      *  unsuffixed variant leads and X/Y follow. Empty when the species has no mega. */

@@ -38,7 +38,22 @@ data class DetailInfo(
      */
     val caughtLocation: String? = null,
     val caughtDate: String? = null,
+    /** "LUCKY POKÉMON" is rendered as text under the species name — no pixel check needed. */
+    val lucky: Boolean = false,
+    /** A "Dynamax" row (pink glyph + label) sits where the mega timer would be. */
+    val dynamax: Boolean = false,
+    /**
+     * The size badge replacing the WEIGHT/HEIGHT label ("LIGHTEST", "TALLEST", …), or null
+     * for an unremarkable individual. Cosmetic in itself, but see [weight]/[height]: the
+     * badge REPLACES the label, so it has to be understood to read those at all.
+     */
+    val sizeBadge: String? = null,
 ) {
+    // NOTE: there is deliberately no `shiny` here. The detail screen carries no shiny
+    // marker — verified by diffing a shiny and a non-shiny Pikachu detail capture, which
+    // differ only in CP, the favourite star and the sprite itself. Shiny IS marked in the
+    // BOX GRID (teal sparkles on the tile sprite), so detection belongs to the grid path.
+    // Claiming it here would mean reporting every Pokémon as not-shiny with false confidence.
     val chargedMove: String? get() = chargedMoves.firstOrNull()
     val chargedMove2: String? get() = chargedMoves.getOrNull(1)
 }
@@ -74,6 +89,24 @@ object DetailParser {
     private val DATE_RE = Regex("\\d{1,2}/\\d{1,2}/\\d{4}")
     private val AROUND_RE = Regex("^around\\s+(.+)$", RegexOption.IGNORE_CASE)
 
+    /**
+     * Size badges REPLACE the "WEIGHT"/"HEIGHT" labels rather than sitting alongside them —
+     * a heaviest-recorded Exeggcute reads "3.17kg" over "HEAVIEST", with no "WEIGHT" line on
+     * the screen at all.
+     *
+     * That matters well beyond the badge itself: weight and height are the per-individual
+     * constants identity is matched on, so anchoring only on "WEIGHT"/"HEIGHT" silently
+     * dropped both for every badged Pokémon, and a badged Pokémon would fail to match its
+     * own row after a power-up.
+     */
+    private val WEIGHT_LABELS = setOf("WEIGHT", "LIGHTEST", "HEAVIEST")
+    private val HEIGHT_LABELS = setOf("HEIGHT", "TALLEST", "SMALLEST")
+    private val SIZE_BADGES = (WEIGHT_LABELS + HEIGHT_LABELS) - setOf("WEIGHT", "HEIGHT")
+
+    // OCR sometimes drops the accent, so match "POKEMON" and "POKÉMON" alike.
+    private val LUCKY_RE = Regex("^LUCKY\\s+POK[EÉ]MON$", RegexOption.IGNORE_CASE)
+    private val DYNAMAX_RE = Regex("^Dynamax$", RegexOption.IGNORE_CASE)
+
     fun parse(result: OcrResult): DetailInfo {
         val lines = result.lines
         val w = result.width
@@ -99,7 +132,10 @@ object DetailParser {
                     abs(line.cx - w / 2) < w * 0.28 &&
                     (hpLine == null || line.cy < hpLine.cy) &&
                     line.cy > result.height * 0.40 &&
-                    !TYPE_RE.matches(alpha)
+                    !TYPE_RE.matches(alpha) &&
+                    // Sits directly under the name, centered, and is pure letters — it
+                    // only loses on glyph height, which is too thin a margin to rely on.
+                    !LUCKY_RE.matches(alpha)
             }
             .maxByOrNull { it.box.h }
             ?.text?.trim()
@@ -115,8 +151,12 @@ object DetailParser {
             cpConfident = cpConfident,
             hpCurrent = hp?.groupValues?.get(1)?.toIntOrNull(),
             hpMax = hp?.groupValues?.get(2)?.toIntOrNull(),
-            weight = valueAbove(lines) { it.equals("WEIGHT", true) }?.text?.trim(),
-            height = valueAbove(lines) { it.equals("HEIGHT", true) }?.text?.trim(),
+            weight = valueAbove(lines) { it.uppercase() in WEIGHT_LABELS }?.text?.trim(),
+            height = valueAbove(lines) { it.uppercase() in HEIGHT_LABELS }?.text?.trim(),
+            lucky = lines.any { LUCKY_RE.matches(it.text.trim()) },
+            dynamax = lines.any { DYNAMAX_RE.matches(it.text.trim()) },
+            sizeBadge = lines.firstOrNull { it.text.trim().uppercase() in SIZE_BADGES }
+                ?.text?.trim()?.uppercase(),
             stardust = valueAbove(lines) { it.equals("STARDUST", true) }
                 ?.text?.filter { it.isDigit() }?.toIntOrNull(),
             candy = valueAbove(lines) { CANDY_RE.matches(it) }

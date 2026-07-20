@@ -1,0 +1,26 @@
+{
+  "image": "capture_1784451696104.png",
+  "width": 1080, "height": 2400,
+  "lines": [
+    {"text": "05:01", "l": 187, "t": 53, "r": 270, "b": 84, "cx": 228, "cy": 68},
+    {"text": "6 Days 17 Hours", "l": 397, "t": 650, "r": 700, "b": 701, "cx": 548, "cy": 675},
+    {"text": "REST PERIOD", "l": 440, "t": 729, "r": 640, "b": 754, "cx": 540, "cy": 741},
+    {"text": "Raichu's Mega Level", "l": 304, "t": 794, "r": 776, "b": 844, "cx": 540, "cy": 819},
+    {"text": "MEGA RAICHU X", "l": 174, "t": 939, "r": 443, "b": 976, "cx": 308, "cy": 957},
+    {"text": "Base Level", "l": 436, "t": 1112, "r": 643, "b": 1146, "cx": 539, "cy": 1129},
+    {"text": "To Reach High Level:", "l": 338, "t": 1470, "r": 740, "b": 1511, "cx": 539, "cy": 1490},
+    {"text": "LEVEL UP", "l": 181, "t": 2046, "r": 402, "b": 2077, "cx": 291, "cy": 2061},
+    {"text": "911 l053%", "l": 682, "t": 50, "r": 998, "b": 89, "cx": 840, "cy": 69},
+    {"text": "Mega Evolve Raichu 5 more times.", "l": 275, "t": 1555, "r": 806, "b": 1588, "cx": 540, "cy": 1571},
+    {"text": "Daily level limit met. You can make additional progress", "l": 123, "t": 1644, "r": 960, "b": 1677, "cx": 541, "cy": 1660},
+    {"text": "tomorrow.", "l": 461, "t": 1688, "r": 619, "b": 1713, "cx": 540, "cy": 1700},
+    {"text": "MEGA RAICHU Y", "l": 639, "t": 945, "r": 927, "b": 971, "cx": 783, "cy": 958},
+    {"text": "OR", "l": 508, "t": 1820, "r": 571, "b": 1853, "cx": 539, "cy": 1836},
+    {"text": "MEGA RAICHU Y N", "l": 158, "t": 2179, "r": 484, "b": 2217, "cx": 321, "cy": 2198},
+    {"text": "Use Mega Energy to level up instantly.", "l": 219, "t": 1916, "r": 861, "b": 1952, "cx": 540, "cy": 1934},
+    {"text": "X", "l": 525, "t": 2194, "r": 557, "b": 2226, "cx": 541, "cy": 2210},
+    {"text": "800", "l": 613, "t": 2043, "r": 687, "b": 2079, "cx": 650, "cy": 2061},
+    {"text": "NERGY 1,250", "l": 601, "t": 2171, "r": 930, "b": 2222, "cx": 765, "cy": 2196},
+    {"text": "MEGAEVOLUTION BONUS", "l": 306, "t": 2326, "r": 745, "b": 2354, "cx": 525, "cy": 2340}
+  ]
+}

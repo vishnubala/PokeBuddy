@@ -46,6 +46,22 @@ data class OwnedPokemon(
     val caughtLocation: String? = null,
     val caughtDate: String? = null,
     val appraisalText: String? = null,
+    /**
+     * Tracked flags. [lucky] and [dynamax] come straight from detail-screen TEXT
+     * ("LUCKY POKÉMON" under the name; a "Dynamax" row where the mega timer sits), so they
+     * need no pixel work.
+     *
+     * [shiny] is different and deliberately NULLABLE rather than a false default: the
+     * detail screen carries NO shiny marker (verified by diffing shiny and non-shiny
+     * captures of the same species), so a detail scan genuinely does not know. Only the box
+     * grid marks shiny, via teal sparkles on the tile sprite. Null means "not yet
+     * determined"; false must only ever be written by something that actually looked.
+     */
+    val shiny: Boolean? = null,
+    val lucky: Boolean = false,
+    val dynamax: Boolean = false,
+    /** Size badge shown in place of the WEIGHT/HEIGHT label ("LIGHTEST", "TALLEST", …). */
+    val sizeBadge: String? = null,
     val capturedAt: Long = System.currentTimeMillis(),
 )
 
@@ -87,4 +103,15 @@ data class MegaEnergy(
     val species: String,
     val variant: String,
     val amount: Int,
+    /**
+     * Mega level for this variant ("Base Level" / "High Level" / "Max Level"), from the
+     * panel behind the detail screen's DNA icon.
+     *
+     * It lives here rather than on [OwnedPokemon] because the game scopes it that way: the
+     * panel is titled "Raichu's Mega Level" and levelling one Raichu levels them all. The
+     * species+variant key this table already uses is exactly the right key for it.
+     *
+     * Null until that panel has actually been read — it is not on the detail screen.
+     */
+    val megaLevel: String? = null,
 )

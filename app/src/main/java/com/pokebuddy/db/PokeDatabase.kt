@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [OwnedPokemon::class, FamilyResource::class, MegaEnergy::class],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class PokeDatabase : RoomDatabase() {
@@ -100,12 +100,36 @@ abstract class PokeDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v6 → v7: tracked flags (shiny / lucky / dynamax / size badge) and mega level.
+         *
+         * shiny is added WITHOUT a NOT NULL default on purpose. Every other flag can be
+         * decided from the detail screen, so false is a real answer for them; shiny cannot
+         * be seen there at all, and defaulting it to false would record "not shiny" for the
+         * whole existing index without anything ever having checked.
+         *
+         * megaLevel goes on mega_energy rather than owned_pokemon because the game scopes
+         * it to species+variant — the key that table already has.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN shiny INTEGER")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN lucky INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN dynamax INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE owned_pokemon ADD COLUMN sizeBadge TEXT")
+                db.execSQL("ALTER TABLE mega_energy ADD COLUMN megaLevel TEXT")
+            }
+        }
+
         @Volatile private var instance: PokeDatabase? = null
 
         fun get(context: Context): PokeDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(
                 context.applicationContext, PokeDatabase::class.java, "pokebuddy.db"
-            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+            ).addMigrations(
+                MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+                MIGRATION_6_7,
+            )
                 .build().also { instance = it }
         }
     }
