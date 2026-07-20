@@ -6,16 +6,42 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.pokebuddy.db.BackupCodec.Snapshot
 
 @Database(
     entities = [OwnedPokemon::class, FamilyResource::class, MegaEnergy::class],
-    version = 7,
+    // Shared with the backup format so the two versions can never drift: a bump here is a
+    // bump there, and BackupCodec refuses a file whose version doesn't match this build.
+    version = BackupCodec.SCHEMA_VERSION,
     exportSchema = false,
 )
 abstract class PokeDatabase : RoomDatabase() {
     abstract fun ownedDao(): OwnedPokemonDao
     abstract fun familyDao(): FamilyResourceDao
     abstract fun megaEnergyDao(): MegaEnergyDao
+
+    /** Reads all three tables for a backup. */
+    fun snapshot(): Snapshot = Snapshot(
+        owned = ownedDao().allForBackup(),
+        families = familyDao().allForBackup(),
+        megas = megaEnergyDao().allForBackup(),
+    )
+
+    /**
+     * Replaces the entire index with a restored snapshot, in ONE transaction so a failure
+     * part-way can't leave a half-imported database — either the whole backup lands or the
+     * existing index is untouched. This is a full replace, not a merge: restoring is "make
+     * my index match this file", and merging two indexes would resurrect Pokémon released
+     * since the backup was taken.
+     */
+    fun restore(snapshot: Snapshot) = runInTransaction {
+        ownedDao().clear()
+        familyDao().clear()
+        megaEnergyDao().clear()
+        ownedDao().insertAll(snapshot.owned)
+        familyDao().insertAll(snapshot.families)
+        megaEnergyDao().insertAll(snapshot.megas)
+    }
 
     companion object {
         /**

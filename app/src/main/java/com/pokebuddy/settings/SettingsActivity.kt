@@ -17,6 +17,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.pokebuddy.db.BackupCodec
+import com.pokebuddy.db.PokeDatabase
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,6 +49,14 @@ class SettingsActivity : AppCompatActivity() {
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { readBackup(it) } }
 
+    private val exportDbTo = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { writeDbBackup(it) } }
+
+    private val importDbFrom = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { readDbBackup(it) } }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = Settings.get(this)
@@ -65,28 +75,33 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun backupSection() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        addView(section("Backup", "Settings only — never the Pokémon index, which holds " +
-            "catch locations and dates. That export is separate."))
-        addView(Button(this@SettingsActivity).apply {
-            text = "Export settings…"
-            setOnClickListener { exportTo.launch(defaultBackupName()) }
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-        })
-        addView(Button(this@SettingsActivity).apply {
-            text = "Import settings…"
-            // Not "application/json": pickers hide files whose MIME the provider reports
-            // differently (often octet-stream for a .json on external storage), and a
-            // backup you can't see in the picker is a backup you don't have.
-            setOnClickListener { importFrom.launch(arrayOf("*/*")) }
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-        })
+
+        addView(section("Settings backup", "The overlay and scan preferences above. Shareable " +
+            "— it carries no personal data."))
+        addView(button("Export settings…") { exportTo.launch(backupName("settings")) })
+        // Not "application/json": pickers hide files whose MIME the provider reports
+        // differently (often octet-stream for a .json on external storage), and a backup you
+        // can't see in the picker is a backup you don't have.
+        addView(button("Import settings…") { importFrom.launch(arrayOf("*/*")) })
+
+        addView(section("Index backup", "Your whole Pokémon index. This one holds catch " +
+            "locations and dates, so keep the file to yourself. Importing REPLACES the " +
+            "current index."))
+        addView(button("Export index…") { exportDbTo.launch(backupName("index")) })
+        addView(button("Import index…") { importDbFrom.launch(arrayOf("*/*")) })
+
+        layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+    }
+
+    private fun button(text: String, onClick: () -> Unit) = Button(this).apply {
+        this.text = text
+        setOnClickListener { onClick() }
         layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
     }
 
     /** Dated so successive backups don't silently overwrite one another in the picker. */
-    private fun defaultBackupName(): String =
-        "pokebuddy-settings-" +
-            SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) + ".json"
+    private fun backupName(kind: String): String =
+        "pokebuddy-$kind-" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) + ".json"
 
     private fun writeBackup(uri: Uri) {
         runCatching {
@@ -126,6 +141,46 @@ class SettingsActivity : AppCompatActivity() {
                 }
             )
         }
+    }
+
+    /**
+     * The index backups run their DB and file work on a worker thread — Room refuses main-
+     * thread queries, and a full-index read/write shouldn't block the UI regardless. Results
+     * are toasted back on the main thread.
+     */
+    private fun writeDbBackup(uri: Uri) = onWorker("db export") {
+        val json = BackupCodec.export(PokeDatabase.get(this).snapshot())
+        contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+            ?: error("could not open $uri for writing")
+        "Index exported"
+    }
+
+    private fun readDbBackup(uri: Uri) = onWorker("db import") {
+        val text = contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+            ?: error("could not open $uri for reading")
+        PokeDatabase.get(this).restore(BackupCodec.import(text))
+        "Index imported — replaced the previous one"
+    }
+
+    /** Runs [work] off the main thread; its return string is toasted on success, and any
+     *  failure is logged and shown, with the version mismatch spelled out. */
+    private fun onWorker(tag: String, work: () -> String) {
+        Thread {
+            val message = runCatching(work).fold(
+                onSuccess = { it },
+                onFailure = { e ->
+                    Log.w("PokeBuddySettings", "$tag failed", e)
+                    when (e) {
+                        is BackupCodec.IncompatibleBackup ->
+                            "That index backup is schema version ${e.foundVersion}; this " +
+                                "build reads ${BackupCodec.SCHEMA_VERSION}. Not imported."
+                        is BackupCodec.MalformedBackup -> "That file isn't a PokeBuddy index backup."
+                        else -> "$tag failed: ${e.message}"
+                    }
+                },
+            )
+            runOnUiThread { toast(message) }
+        }.start()
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

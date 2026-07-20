@@ -116,6 +116,19 @@ interface OwnedPokemonDao {
     /** Everything we can score as a counter: species plus its actual moveset. */
     @Query("SELECT * FROM owned_pokemon")
     fun allForCounters(): List<OwnedPokemon>
+
+    // --- backup/restore ---
+
+    /** Whole table, ordered by id so a backup is stable and diff-able across exports. */
+    @Query("SELECT * FROM owned_pokemon ORDER BY id")
+    fun allForBackup(): List<OwnedPokemon>
+
+    /** Restores rows verbatim, keeping their original ids so identity survives a round trip. */
+    @Insert
+    fun insertAll(rows: List<OwnedPokemon>)
+
+    @Query("DELETE FROM owned_pokemon")
+    fun clear()
 }
 
 @Dao
@@ -125,6 +138,15 @@ interface FamilyResourceDao {
 
     @Query("SELECT * FROM family_resource WHERE family = :family")
     fun get(family: String): FamilyResource?
+
+    @Query("SELECT * FROM family_resource ORDER BY family")
+    fun allForBackup(): List<FamilyResource>
+
+    @Insert
+    fun insertAll(rows: List<FamilyResource>)
+
+    @Query("DELETE FROM family_resource")
+    fun clear()
 }
 
 @Dao
@@ -155,4 +177,13 @@ interface MegaEnergyDao {
      *  unsuffixed variant leads and X/Y follow. Empty when the species has no mega. */
     @Query("SELECT * FROM mega_energy WHERE species = :species ORDER BY variant")
     fun forSpecies(species: String): List<MegaEnergy>
+
+    @Query("SELECT * FROM mega_energy ORDER BY species, variant")
+    fun allForBackup(): List<MegaEnergy>
+
+    @Insert
+    fun insertAll(rows: List<MegaEnergy>)
+
+    @Query("DELETE FROM mega_energy")
+    fun clear()
 }

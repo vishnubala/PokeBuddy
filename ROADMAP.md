@@ -252,13 +252,34 @@ backup taken with it.
 Known limitation: `OverlayController` reads settings when it builds the panel, so an
 imported panel text size applies to the next panel, not one already on screen.
 
-- **Export the DB** once the schema is settled, so the index survives reinstalling PokeBuddy
-  or PoGO. Deliberately AFTER the schema stabilises — exporting a format still in flux
-  produces backups that can't be restored.
-  - Export must be explicit and user-initiated. The DB contains catch locations and dates
-    (personal data), so it is never uploaded anywhere: local file only, and never committed.
-  - Import needs a schema version in the file and a migration path, or old backups become
-    unrestorable — the same discipline as the Room migrations.
+**Export the DB — codec + UI built, NOT device-verified.** `BackupCodec` serialises all
+three tables (owned Pokémon, family candy, mega energy) to JSON and back, through the SAF
+picker, on a worker thread (Room refuses main-thread queries). Restore is a full REPLACE in
+one transaction — "make my index match this file", not a merge, which would resurrect
+released Pokémon.
+
+Restore-safety, the whole point of doing this carefully:
+
+- The backup is stamped with the schema version, and `@Database(version = …)` **reads that
+  same constant** (`BackupCodec.SCHEMA_VERSION`) — they cannot drift, because there is only
+  one number. A bump to the Room schema is a bump to the backup format by construction.
+- A NEWER backup than the build understands is refused; an EQUAL or OLDER one restores with
+  new columns defaulting cleanly. That older-is-OK rule holds only while migrations stay
+  **additive** (every one to date is `ADD COLUMN`). A future destructive migration breaks
+  the assumption — at which point the version guard fails loudly instead of corrupting, and
+  a real backup-migration is needed. This is called out in `BackupCodec`'s header.
+- The JSON is parsed with a real hand-written tokenizer (`Json.kt`), not regex like the
+  settings codec, because catch locations are free text with commas, quotes and non-ASCII.
+  Tested against exactly those: `"Waterloo, Ontario, Canada"`, embedded quotes/backslashes,
+  and unicode all round-trip; tri-state `shiny` (null/true/false) survives each value.
+
+The index holds catch locations and dates, so this file is personal: local only, never
+uploaded, never committed as a fixture.
+
+⚠️ **Not exercised on the phone** — same reason as the settings export; the device came back
+unauthorized. Codec, JSON layer and transaction logic are unit-tested (30-odd cases); the
+SAF round trip and the actual DB read/write on-device are not. First real export should be
+verified by re-importing it into a fresh install before it's trusted as a backup.
 
 **Order matters here**: box scan comes last, after the features are built, scanning is
 ironed out, and the DB is robust. A scan writing into an unstable schema just creates data
