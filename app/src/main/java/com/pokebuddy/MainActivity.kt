@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.pokebuddy.capture.ScreenCaptureService
 import com.pokebuddy.databinding.ActivityMainBinding
+import com.pokebuddy.settings.SettingsActivity
 
 /**
  * FLAG_SECURE spike entry point. Requests the notification permission (Android 13+),
@@ -61,6 +62,9 @@ class MainActivity : AppCompatActivity() {
         projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
 
         binding.startButton.setOnClickListener { startFlow() }
+        binding.settingsButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
     }
 
     override fun onStart() {

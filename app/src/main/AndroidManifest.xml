@@ -25,6 +25,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Not exported: settings are reached from MainActivity, never from outside. -->
+        <activity
+            android:name=".settings.SettingsActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
         <service
             android:name=".capture.ScreenCaptureService"
             android:exported="false"
