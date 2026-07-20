@@ -244,19 +244,25 @@ user-initiated. Two wrinkles worth keeping:
   picker is a backup you don't have.
 - Backup filenames are dated, so successive exports don't overwrite each other.
 
-⚠️ **The picker flow has not been exercised on the phone** — the device was unplugged and
-came back unauthorized before this could be tested. The codec is unit-tested; the SAF
-round trip, the toasts and the post-import `recreate()` are not. Test before trusting a
-backup taken with it.
+**Device-verified.** Export writes valid JSON (version 1, all keys) through the SAF picker;
+pulled and inspected off-device.
 
 Known limitation: `OverlayController` reads settings when it builds the panel, so an
 imported panel text size applies to the next panel, not one already on screen.
 
-**Export the DB — codec + UI built, NOT device-verified.** `BackupCodec` serialises all
-three tables (owned Pokémon, family candy, mega energy) to JSON and back, through the SAF
-picker, on a worker thread (Room refuses main-thread queries). Restore is a full REPLACE in
-one transaction — "make my index match this file", not a merge, which would resurrect
-released Pokémon.
+**Export the DB — built and DEVICE-VERIFIED.** `BackupCodec` serialises all three tables
+(owned Pokémon, family candy, mega energy) to JSON and back, through the SAF picker, on a
+worker thread (Room refuses main-thread queries). Restore is a full REPLACE in one
+transaction — "make my index match this file", not a merge, which would resurrect released
+Pokémon.
+
+End-to-end verified on the real index (19/9/3 rows): export → pull → parse matched the live
+DB exactly, including a `"Waterloo, Ontario, Canada"` catch location surviving the tokenizer.
+A deliberately small crafted backup (3 rows, a `Kraków, Ōsaka, "quoted"` location, tri-state
+shiny) imported as a full REPLACE — the DB dropped 19→3 and the nasty string round-tripped on
+the way IN — then the real export re-imported to restore 19/9/3 with ids 1..19 intact and no
+test rows leaked. The `Ō`/comma/quote survival is the payoff of the hand-written tokenizer
+over the settings codec's regex.
 
 Restore-safety, the whole point of doing this carefully:
 
