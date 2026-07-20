@@ -35,6 +35,13 @@ class GestureService : AccessibilityService() {
         /** @return false when the service isn't enabled, or the gesture didn't dispatch. */
         fun tap(x: Int, y: Int): Boolean = instance?.dispatchTap(x, y) ?: false
 
+        /** Presses the system BACK button — how the box scan leaves a detail page. */
+        fun back(): Boolean = instance?.performGlobalAction(GLOBAL_ACTION_BACK) ?: false
+
+        /** A drag from start to end, for scrolling the box grid. */
+        fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long = 300L): Boolean =
+            instance?.dispatchSwipe(x1, y1, x2, y2, durationMs) ?: false
+
         /** True when Pokémon GO is the app we last saw come to the foreground. */
         val isPogoForeground: Boolean get() = instance?.lastPackage == POGO
 
@@ -93,6 +100,26 @@ class GestureService : AccessibilityService() {
         }, null)
         if (!dispatched) return false
         done.await(2, TimeUnit.SECONDS)
+        return ok
+    }
+
+    /** Dispatches a drag gesture and blocks until the system reports it completed. */
+    private fun dispatchSwipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long): Boolean {
+        val path = Path().apply {
+            moveTo(x1.toFloat(), y1.toFloat())
+            lineTo(x2.toFloat(), y2.toFloat())
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
+            .build()
+        val done = CountDownLatch(1)
+        var ok = false
+        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(d: GestureDescription?) { ok = true; done.countDown() }
+            override fun onCancelled(d: GestureDescription?) { done.countDown() }
+        }, null)
+        if (!dispatched) return false
+        done.await(durationMs + 2000, TimeUnit.MILLISECONDS)
         return ok
     }
 }

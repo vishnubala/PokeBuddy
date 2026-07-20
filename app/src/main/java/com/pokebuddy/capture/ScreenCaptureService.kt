@@ -26,6 +26,7 @@ import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.pokebuddy.automation.AutoAppraiser
+import com.pokebuddy.automation.BoxScanner
 import com.pokebuddy.automation.GestureService
 import com.pokebuddy.db.MegaEnergy
 import com.pokebuddy.db.OwnedPokemon
@@ -90,6 +91,9 @@ class ScreenCaptureService : Service() {
         const val ACTION_WATCH = "com.pokebuddy.WATCH"
         const val ACTION_UNWATCH = "com.pokebuddy.UNWATCH"
 
+        /** Opt-in: walk the whole box, scanning each Pokémon's detail page. Needs GestureService. */
+        const val ACTION_BOX_SCAN = "com.pokebuddy.BOX_SCAN"
+
         /** How often to fingerprint a frame while watching. Cheap: no OCR unless changed. */
         private const val WATCH_POLL_MS = 600L
 
@@ -135,6 +139,10 @@ class ScreenCaptureService : Service() {
             when (intent?.action) {
                 ACTION_WATCH -> startWatching()
                 ACTION_UNWATCH -> stopWatching()
+                ACTION_BOX_SCAN -> {
+                    Log.i(TAG, "Box scan triggered via broadcast")
+                    bgHandler.post { handleBoxScan() }
+                }
                 ACTION_AUTO_APPRAISE -> {
                     Log.i(TAG, "Auto-appraise triggered via broadcast")
                     bgHandler.post { handleAutoAppraise() }
@@ -176,6 +184,7 @@ class ScreenCaptureService : Service() {
                 addAction(ACTION_AUTO_APPRAISE)
                 addAction(ACTION_WATCH)
                 addAction(ACTION_UNWATCH)
+                addAction(ACTION_BOX_SCAN)
             },
             ContextCompat.RECEIVER_EXPORTED
         )
@@ -188,6 +197,7 @@ class ScreenCaptureService : Service() {
             ACTION_AUTO_APPRAISE -> bgHandler.post { handleAutoAppraise() }
             ACTION_WATCH -> startWatching()
             ACTION_UNWATCH -> stopWatching()
+            ACTION_BOX_SCAN -> bgHandler.post { handleBoxScan() }
             ACTION_STOP -> { teardown(); stopSelf() }
         }
         return START_NOT_STICKY
@@ -360,6 +370,84 @@ class ScreenCaptureService : Service() {
                 broadcast(msg, null)
             }
         }
+    }
+
+    /**
+     * Walk the whole box, opening each Pokémon's detail page and running the normal scan on
+     * it. The traversal lives in [BoxScanner]; this only supplies the device primitives and
+     * reports progress. Needs the accessibility service, like auto-appraise, because it taps.
+     */
+    private fun handleBoxScan() {
+        if (imageReader == null) {
+            broadcast("Capture not armed — tap Start Capture first.", null)
+            return
+        }
+        if (!GestureService.isConnected) {
+            val msg = "Box scan needs the accessibility service:\n" +
+                "Settings → Accessibility → PokeBuddy"
+            overlay.show(msg); broadcast(msg, null)
+            return
+        }
+        if (!GestureService.isPogoForeground) {
+            broadcast("Box scan skipped — open your Pokémon box in the game first.", null)
+            return
+        }
+
+        overlay.show("Box scan starting…")
+        val scanner = BoxScanner(
+            tap = { x, y -> GestureService.tap(x, y) },
+            back = { GestureService.back() },
+            // Swipe up the middle to scroll the grid down and reveal lower tiles. Kept off
+            // the far edges, which some launchers claim for system back gestures.
+            scrollDown = {
+                GestureService.swipe(
+                    540, (height() * 0.72).toInt(), 540, (height() * 0.28).toInt(), 400L,
+                )
+            },
+            probe = { probeOcr() },
+            scanCurrent = { scanDetailForBox() },
+            sleep = { Thread.sleep(it) },
+            onProgress = { p -> overlay.show("Box scan: ${p.scanned}\nlast: ${p.lastName}") },
+        )
+        val result = scanner.run()
+        val msg = "Box scan ${result.outcome.name.lowercase().replace('_', ' ')}: " +
+            "${result.scanned} scanned"
+        Log.i(TAG, msg)
+        overlay.show(msg)
+        broadcast(msg, null)
+    }
+
+    /** Screen height from the live projection; falls back to the display metrics if unset. */
+    private fun height(): Int =
+        imageReader?.height ?: resources.displayMetrics.heightPixels
+
+    /**
+     * One box-scan stop: burst the current detail screen and persist it, exactly like a
+     * manual capture but without the panel/PNG bookkeeping. @return true if a named Pokémon
+     * was recorded, so the traversal can count real scans rather than empty taps.
+     */
+    private fun scanDetailForBox(): Boolean {
+        val reader = imageReader ?: return false
+        overlay.hideForCapture()
+        Thread.sleep(150)
+        val frames = ArrayList<OcrResult>()
+        val barReads = ArrayList<Triple<Int, Int, Int>>()
+        val burst = settings.get(SettingsSpec.CAPTURE_BURST_FRAMES)
+        repeat(burst) { i ->
+            val frame = grabBitmap(reader) ?: return@repeat
+            val res = ocr.recognizeBlocking(frame)
+            frames.add(res)
+            if (AppraisalReader.isAppraisalScreen(res)) {
+                AppraisalReader.measure(frame.asPixelSource(), res)?.let { barReads.add(it) }
+            }
+            frame.recycle()
+            if (i < burst - 1) Thread.sleep(BURST_GAP_MS)
+        }
+        if (frames.isEmpty()) return false
+        val recorded = aggregateDetail(frames)?.name != null
+        runCatching { persistScan(frames, resolveBars(barReads)) }
+            .onFailure { Log.e(TAG, "box persist failed", it) }
+        return recorded
     }
 
     /** One frame, OCR'd — the automation's eyes between taps. Cheaper than a full burst

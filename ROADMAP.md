@@ -31,16 +31,44 @@ to be rediscovered.
 
 ## Next up
 
-1. **Variant feasibility fix** (see "Variants the type row cannot separate").
-2. **Settings page** (see "Settings, backup and export").
-3. **Power-up duplicate test** on the lucky Exeggcute — authorised to spend dust/candy.
-   Confirms identity survives a real power-up rather than only in theory.
-4. **Counters in the overlay**: data layer is done; needs UI and a decision on presentation.
-5. **Shiny detection**, which belongs to the grid path — see below.
-6. **Box scan** — semi-manual, then auto-navigate. LAST, after the schema settles.
-   **Filter rescan** via PoGO's own search field is approved (the app may type into it) and
-   is far more robust than scrolling the whole box: `shiny`, `lucky`, `mega`, `dynamax` all
-   work as queries.
+1. **Box scan — live smoke test.** The traversal is built (`BoxScanner` + `handleBoxScan`,
+   trigger `com.pokebuddy.BOX_SCAN`) and unit-tested, but has NOT been run on device yet.
+   Blocked only by getting onto the box screen: scripted map navigation to open the box
+   failed repeatedly (the documented trap), so the test wants a human to open the box first,
+   then fire the trigger. See "Box scan — how it works" below.
+2. **Counters in the overlay**: data layer is done; needs UI and a decision on presentation.
+3. **Shiny detection**, which belongs to the grid path — see below.
+
+Done and verified since this list was last real: variant feasibility fix, settings page,
+settings + DB backup (device-verified), and the power-up duplicate test (device-verified —
+see "Identity").
+
+**Filter rescan** via PoGO's own search field is approved (the app may type into it) and
+composes with the box scan: search `shiny`/`lucky`/`mega`/`dynamax`/a species, THEN box-scan,
+and only the filtered set is walked. Far cheaper than the whole box.
+
+### Box scan — how it works
+
+Full detail scan of the box: `BoxScanner` (framework-independent, unit-tested) walks the grid
+tile by tile, and for each tile taps in, runs the **normal detail-scan pipeline** on the
+detail page, then presses back. It does NOT persist tiles directly — a tile only shows species
++ CP, so it's just a tap target; the value is the detail page behind it.
+
+Why this is safe to get slightly wrong: the detail pipeline dedups on the immutable
+weight/height identity (proven on device, see "Identity"), so re-visiting a Pokémon UPDATES
+its row rather than duplicating. Over-scanning from page overlap is therefore only slower,
+never wrong — which is what lets the traversal use coarse page fingerprints for end-detection
+instead of precise tile tracking.
+
+Device primitives live in `GestureService` (now with `back()` and `swipe()` alongside
+`tap()`); the service supplies them plus `probeOcr`/`scanDetailForBox` to the scanner. Needs
+the accessibility service, like auto-appraise.
+
+Known limitation: two Pokémon identical in BOTH species and CP collapse to one tap (the grid
+can't distinguish them), under-scanning that rare pair by one. Everything else is covered.
+
+To run it: open the box in PoGO (optionally filter first), then
+`adb shell am broadcast -a com.pokebuddy.BOX_SCAN`.
 
 ### How PoGO marks each flag — measured, 2026-07-19
 
